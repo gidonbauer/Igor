@@ -100,7 +100,8 @@ class Print {
 
 // -------------------------------------------------------------------------------------------------
 template <typename... Args>
-class [[maybe_unused]] Info : detail::Print<detail::Level::INFO, ExitCode::NO_EARLY_EXIT, Args...> {
+class [[maybe_unused]] Info final
+    : detail::Print<detail::Level::INFO, ExitCode::NO_EARLY_EXIT, Args...> {
   using P = detail::Print<detail::Level::INFO, ExitCode::NO_EARLY_EXIT, Args...>;
 
  public:
@@ -112,7 +113,8 @@ Info(std::format_string<Args...>, Args&&...) -> Info<Args...>;
 
 // -------------------------------------------------------------------------------------------------
 template <typename... Args>
-class [[maybe_unused]] Warn : detail::Print<detail::Level::WARN, ExitCode::NO_EARLY_EXIT, Args...> {
+class [[maybe_unused]] Warn final
+    : detail::Print<detail::Level::WARN, ExitCode::NO_EARLY_EXIT, Args...> {
   using P = detail::Print<detail::Level::WARN, ExitCode::NO_EARLY_EXIT, Args...>;
 
  public:
@@ -126,7 +128,7 @@ Warn(std::format_string<Args...>, Args&&...) -> Warn<Args...>;
 
 // -------------------------------------------------------------------------------------------------
 template <typename... Args>
-class [[maybe_unused]] Todo : detail::Print<detail::Level::TODO, ExitCode::TODO, Args...> {
+class [[maybe_unused]] Todo final : detail::Print<detail::Level::TODO, ExitCode::TODO, Args...> {
   using P = detail::Print<detail::Level::TODO, ExitCode::TODO, Args...>;
 
  public:
@@ -143,7 +145,7 @@ Todo(std::format_string<Args...>, Args&&...) -> Todo<Args...>;
 
 // -------------------------------------------------------------------------------------------------
 template <typename... Args>
-class [[maybe_unused]] Panic : detail::Print<detail::Level::PANIC, ExitCode::PANIC, Args...> {
+class [[maybe_unused]] Panic final : detail::Print<detail::Level::PANIC, ExitCode::PANIC, Args...> {
   using P = detail::Print<detail::Level::PANIC, ExitCode::PANIC, Args...>;
 
  public:
@@ -160,7 +162,7 @@ Panic(std::format_string<Args...>, Args&&...) -> Panic<Args...>;
 
 // -------------------------------------------------------------------------------------------------
 template <typename... Args>
-class [[maybe_unused]] Debug
+class [[maybe_unused]] Debug final
     : detail::Print<detail::Level::DEBUG, ExitCode::NO_EARLY_EXIT, Args...> {
   using P = detail::Print<detail::Level::DEBUG, ExitCode::NO_EARLY_EXIT, Args...>;
 
@@ -173,9 +175,11 @@ Debug(std::format_string<Args...>, Args&&...) -> Debug<Args...>;
 
 #define IGOR_DEBUG_PRINT(x) Igor::Debug("{} = {}", #x, x)  // NOLINT(cppcoreguidelines-macro-usage)
 
+// -------------------------------------------------------------------------------------------------
 #define IGOR_STRINGIFY(s) IGOR_XSTRINGIFY(s)  // NOLINT(cppcoreguidelines-macro-usage)
 #define IGOR_XSTRINGIFY(s) #s                 // NOLINT(cppcoreguidelines-macro-usage)
 
+// -------------------------------------------------------------------------------------------------
 template <typename T>
 [[nodiscard]] constexpr auto type_name() -> std::string {
   using namespace std::string_literals;
