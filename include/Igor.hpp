@@ -133,6 +133,11 @@ class [[maybe_unused]] Todo final : detail::Print<detail::Level::TODO, ExitCode:
 
  public:
   [[noreturn]] constexpr Todo(
+      const std::source_location loc = std::source_location::current()) noexcept
+      : P{loc, "Not implemented yet."} {
+    std::unreachable();
+  }
+  [[noreturn]] constexpr Todo(
       std::format_string<Args...> fmt,
       Args&&... args,
       const std::source_location loc = std::source_location::current()) noexcept
