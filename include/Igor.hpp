@@ -230,6 +230,11 @@ template <typename T>
   return name;
 }
 
+template <typename T>
+[[nodiscard]] constexpr auto type_name(T /*ignored*/) -> std::string {
+  return type_name<T>();
+}
+
 }  // namespace Igor
 
 #endif  // IGOR_HPP_
