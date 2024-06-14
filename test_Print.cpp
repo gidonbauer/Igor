@@ -21,6 +21,7 @@ auto main() -> int {
 
     std::string s{"This is a very long string that I want to print to the screen."};
     IGOR_DEBUG_PRINT(s);
+    Igor::Debug("Normal message with debug level.");
     Igor::Info("s has type {}", Igor::type_name<decltype(s)>());
 
     std::cout << '\n';
@@ -39,8 +40,6 @@ auto main() -> int {
     Igor::Warn("This is warning {} ({})", 123, s);
 
     std::cout << '\n';
-
-    Igor::Todo("Fix bug #{} ({})", 12312414, s);
   } catch (const std::exception& e) {
     Igor::Panic("Exception thrown in main: {}", e.what());
   }

@@ -1,7 +1,7 @@
 vscode/
 .cache/
 
-test.dSYM/
-test
+test_*
+!test_*.cpp
 
 compile_commands.json

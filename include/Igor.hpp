@@ -22,7 +22,7 @@
 #ifndef IGOR_HPP_
 #define IGOR_HPP_
 
-#include <cxxabi.h>
+#include <chrono>
 #include <format>
 #include <iostream>
 #include <memory>
@@ -31,6 +31,8 @@
 #include <type_traits>
 #include <utility>
 #include <version>
+
+#include <cxxabi.h>
 
 static_assert(__cpp_lib_source_location >= 201907L, "Requires source_location.");
 // static_assert(__cpp_lib_format >= 201907L, "Requires std::format.");
@@ -65,11 +67,13 @@ enum class Level : std::uint8_t {
   TODO,
   PANIC,
   DEBUG,
+  TIME,
 };
 
 consteval auto level_stream(Level level) noexcept -> std::ostream& {
   switch (level) {
     case Level::INFO:
+    case Level::TIME:
       return std::cout;
     case Level::WARN:
     case Level::TODO:
@@ -91,6 +95,8 @@ consteval auto level_repr(Level level) noexcept {
       return "\033[31m[ERROR]\033[0m ";
     case Level::DEBUG:
       return "\033[94m[DEBUG]\033[0m ";
+    case Level::TIME:
+      return "\033[94m[TIME]\033[0m ";
   }
 }
 
@@ -116,6 +122,19 @@ class Print {
     }
   }
 };
+
+// -------------------------------------------------------------------------------------------------
+template <typename... Args>
+class [[maybe_unused]] Time final
+    : detail::Print<detail::Level::TIME, ExitCode::NO_EARLY_EXIT, Args...> {
+  using P = detail::Print<detail::Level::TIME, ExitCode::NO_EARLY_EXIT, Args...>;
+
+ public:
+  constexpr Time(std::format_string<Args...> fmt, Args&&... args) noexcept
+      : P{fmt, std::forward<Args>(args)...} {}
+};
+template <typename... Args>
+Time(std::format_string<Args...>, Args&&...) -> Time<Args...>;
 
 }  // namespace detail
 
@@ -254,6 +273,53 @@ template <typename T>
 template <typename T>
 [[nodiscard]] constexpr auto type_name(T /*ignored*/) -> std::string {
   return type_name<T>();
+}
+
+// - Times the duration of the scope in wall-clock time --------------------------------------------
+class ScopeTimer {
+  std::string m_scope_name;
+  std::chrono::high_resolution_clock::time_point m_t_begin;
+
+ public:
+  [[nodiscard]] ScopeTimer(std::string scope_name = "Scope") noexcept
+      : m_scope_name(std::move(scope_name)),
+        m_t_begin(std::chrono::high_resolution_clock::now()) {}
+
+  ScopeTimer(const ScopeTimer& other) noexcept                    = delete;
+  ScopeTimer(ScopeTimer&& other) noexcept                         = delete;
+  auto operator=(const ScopeTimer& other) noexcept -> ScopeTimer& = delete;
+  auto operator=(ScopeTimer&& other) noexcept -> ScopeTimer&      = delete;
+  ~ScopeTimer() noexcept {
+    const auto t_duration =
+        std::chrono::duration<double>(std::chrono::high_resolution_clock::now() - m_t_begin);
+    detail::Time("{} took {}.", m_scope_name, t_duration);
+  }
+};
+
+#define IGOR_COMBINE1(X, Y) X##Y                // NOLINT
+#define IGOR_COMBINE(X, Y) IGOR_COMBINE1(X, Y)  // NOLINT
+
+// NOLINTNEXTLINE
+#define IGOR_TIME_SCOPE(...)                                                                       \
+  if (const auto IGOR_COMBINE(IGOR__SCOPE__TIMER__NAME__, __LINE__) =                              \
+          Igor::ScopeTimer{__VA_ARGS__};                                                           \
+      true)
+
+// - Transforms memory in bytes to a human readable string -----------------------------------------
+[[nodiscard]] auto memory_to_string(uint64_t mem_in_bytes) noexcept -> std::string {
+  using namespace std::string_literals;
+  constexpr uint64_t step_factor = 1024;
+
+  if (mem_in_bytes < step_factor) {
+    return std::to_string(mem_in_bytes) + " B"s;
+  }
+  if (mem_in_bytes < step_factor * step_factor) {
+    return std::to_string(mem_in_bytes / step_factor) + " kB"s;
+  }
+  if (mem_in_bytes < step_factor * step_factor * step_factor) {
+    return std::to_string(mem_in_bytes / (step_factor * step_factor)) + " MB"s;
+  }
+  return std::to_string(mem_in_bytes / (step_factor * step_factor * step_factor)) + " GB"s;
 }
 
 }  // namespace Igor
