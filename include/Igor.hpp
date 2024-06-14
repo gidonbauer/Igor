@@ -22,8 +22,10 @@
 #ifndef IGOR_HPP_
 #define IGOR_HPP_
 
+#include <cassert>
 #include <chrono>
 #include <format>
+#include <iomanip>
 #include <iostream>
 #include <memory>
 #include <source_location>
@@ -304,6 +306,40 @@ class ScopeTimer {
   if (const auto IGOR_COMBINE(IGOR__SCOPE__TIMER__NAME__, __LINE__) =                              \
           Igor::ScopeTimer{__VA_ARGS__};                                                           \
       true)
+
+// - Simple command line progress bar --------------------------------------------------------------
+class ProgressBar {
+  std::size_t m_max_progress;
+  std::size_t m_length;
+  std::size_t m_progress = 0UZ;
+
+  enum : char {
+    DONE_CHAR     = '#',
+    NOT_DONE_CHAR = '.',
+  };
+
+ public:
+  constexpr ProgressBar(std::size_t max_progress, std::size_t length) noexcept
+      : m_max_progress(max_progress),
+        m_length(length - 5UZ) {
+    assert(length < std::numeric_limits<int>::max());
+  }
+
+  constexpr void update() noexcept {
+    m_progress = std::min(m_progress + 1, m_max_progress);
+    show();
+  }
+
+  void show() const noexcept {
+    const auto done_length = (m_length * m_progress) / m_max_progress;
+    const auto done_prct   = (100UZ * m_progress) / m_max_progress;
+    std::cout << "\r[";
+    std::cout << std::string(done_length, DONE_CHAR);
+    std::cout << std::string(m_length - done_length, NOT_DONE_CHAR);
+    std::cout << "] ";
+    std::cout << std::setw(3) << done_prct << "%" << std::flush;
+  }
+};
 
 // - Transforms memory in bytes to a human readable string -----------------------------------------
 [[nodiscard]] auto memory_to_string(uint64_t mem_in_bytes) noexcept -> std::string {
