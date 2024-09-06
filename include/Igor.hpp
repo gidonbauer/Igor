@@ -34,7 +34,9 @@
 #include <utility>
 #include <version>
 
+#ifndef IGOR_NO_CXX_ABI
 #include <cxxabi.h>
+#endif  // IGOR_NO_CXX_ABI
 
 static_assert(__cpp_lib_source_location >= 201907L, "Requires source_location.");
 // static_assert(__cpp_lib_format >= 201907L, "Requires std::format.");
@@ -227,6 +229,8 @@ Debug(std::format_string<Args...>, Args&&...) -> Debug<Args...>;
 #define IGOR_XSTRINGIFY(s) #s                 // NOLINT(cppcoreguidelines-macro-usage)
 
 // -------------------------------------------------------------------------------------------------
+#ifndef IGOR_NO_CXX_ABI
+
 template <typename T>
 [[nodiscard]] constexpr auto type_name() -> std::string {
   using namespace std::string_literals;
@@ -276,6 +280,8 @@ template <typename T>
 [[nodiscard]] constexpr auto type_name(T /*ignored*/) -> std::string {
   return type_name<T>();
 }
+
+#endif  // IGOR_NO_CXX_ABI
 
 // - Times the duration of the scope in wall-clock time --------------------------------------------
 class ScopeTimer {
