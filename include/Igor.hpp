@@ -47,6 +47,7 @@ enum class ExitCode : int {  // NOLINT(performance-enum-size)
   NO_EARLY_EXIT,
   PANIC,
   TODO,
+  ASSERT,
 };
 
 namespace detail {
@@ -72,6 +73,7 @@ enum class Level : std::uint8_t {
   PANIC,
   DEBUG,
   TIME,
+  ASSERT,
 };
 
 consteval auto level_stream(Level level) noexcept -> std::ostream& {
@@ -83,6 +85,7 @@ consteval auto level_stream(Level level) noexcept -> std::ostream& {
     case Level::TODO:
     case Level::PANIC:
     case Level::DEBUG:
+    case Level::ASSERT:
       return std::cerr;
   }
 }
@@ -101,6 +104,8 @@ consteval auto level_repr(Level level) noexcept {
       return "\033[94m[DEBUG]\033[0m ";
     case Level::TIME:
       return "\033[94m[TIME]\033[0m ";
+    case Level::ASSERT:
+      return "\033[31m[ASSERT]\033[0m ";
   }
 }
 
@@ -208,6 +213,37 @@ class [[maybe_unused]] Panic final : detail::Print<detail::Level::PANIC, ExitCod
 };
 template <typename... Args>
 Panic(std::format_string<Args...>, Args&&...) -> Panic<Args...>;
+
+// -------------------------------------------------------------------------------------------------
+template <typename... Args>
+class [[maybe_unused]] Assert final
+    : detail::Print<detail::Level::ASSERT, ExitCode::ASSERT, Args...> {
+  using P = detail::Print<detail::Level::ASSERT, ExitCode::ASSERT, Args...>;
+
+ public:
+  [[noreturn]] constexpr Assert(
+      std::format_string<Args...> fmt,
+      Args&&... args,
+      const std::source_location loc = std::source_location::current()) noexcept
+      : P{loc, fmt, std::forward<Args>(args)...} {
+    std::unreachable();
+  }
+};
+template <typename... Args>
+Assert(std::format_string<Args...>, Args&&...) -> Assert<Args...>;
+
+#define IGOR_ASSERT(cond, ...)                                                                     \
+  do {                                                                                             \
+    if (!(cond)) {                                                                                 \
+      using t = decltype(std::make_tuple(__VA_ARGS__));                                            \
+      static_assert(std::tuple_size_v<t> > 0,                                                      \
+                    "`IGOR_ASSERT` requires an error message, please provide a format string and " \
+                    "the corresponding values");                                                   \
+      static_assert(std::is_convertible_v<std::tuple_element_t<0, t>, std::string>,                \
+                    "First argument for error message must be a format string.");                  \
+      Igor::Assert("Assertion `{}` failed: {}", #cond, std::format(__VA_ARGS__));                  \
+    }                                                                                              \
+  } while (false)
 
 // -------------------------------------------------------------------------------------------------
 template <typename... Args>
