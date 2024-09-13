@@ -232,6 +232,8 @@ class [[maybe_unused]] Assert final
 template <typename... Args>
 Assert(std::format_string<Args...>, Args&&...) -> Assert<Args...>;
 
+#ifndef IGOR_NDEBUG
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define IGOR_ASSERT(cond, ...)                                                                     \
   do {                                                                                             \
     if (!(cond)) {                                                                                 \
@@ -244,6 +246,9 @@ Assert(std::format_string<Args...>, Args&&...) -> Assert<Args...>;
       Igor::Assert("Assertion `{}` failed: {}", #cond, std::format(__VA_ARGS__));                  \
     }                                                                                              \
   } while (false)
+#else
+#define IGOR_ASSERT(cond, ...) ((void)0)
+#endif  // IGOR_NDEBUG
 
 // -------------------------------------------------------------------------------------------------
 template <typename... Args>
@@ -340,10 +345,10 @@ class ScopeTimer {
   }
 };
 
-#define IGOR_COMBINE1(X, Y) X##Y                // NOLINT
-#define IGOR_COMBINE(X, Y) IGOR_COMBINE1(X, Y)  // NOLINT
+#define IGOR_COMBINE1(X, Y) X##Y                // NOLINT(cppcoreguidelines-macro-usage)
+#define IGOR_COMBINE(X, Y) IGOR_COMBINE1(X, Y)  // NOLINT(cppcoreguidelines-macro-usage)
 
-// NOLINTNEXTLINE
+// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define IGOR_TIME_SCOPE(...)                                                                       \
   if (const auto IGOR_COMBINE(IGOR__SCOPE__TIMER__NAME__, __LINE__) =                              \
           Igor::ScopeTimer{__VA_ARGS__};                                                           \
