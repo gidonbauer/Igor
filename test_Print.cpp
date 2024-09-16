@@ -1,4 +1,5 @@
-#include "Igor.hpp"
+#include "Igor/Logging.hpp"
+#include "Igor/TypeName.hpp"
 
 auto main() -> int {
   try {

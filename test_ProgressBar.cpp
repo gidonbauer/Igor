@@ -2,7 +2,7 @@
 #include <thread>
 using namespace std::chrono_literals;
 
-#include "Igor.hpp"
+#include "Igor/ProgressBar.hpp"
 
 auto main() -> int {
   const auto N      = 100UZ;

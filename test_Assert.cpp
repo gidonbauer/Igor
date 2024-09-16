@@ -1,4 +1,4 @@
-#include "Igor.hpp"
+#include "Igor/Logging.hpp"
 
 auto main() -> int {
   int x = 3;

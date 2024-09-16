@@ -1,13 +1,13 @@
-#include <chrono>
 #include <thread>
 using namespace std::chrono_literals;
 
-#include "Igor.hpp"
+#include "Igor/Timer.hpp"
+#include "Igor/TypeName.hpp"
 
 auto main() -> int {
   {
     const auto scope_timer = Igor::ScopeTimer("Outer scope");
-    Igor::Debug("typeof(scope_timer ) = {}", Igor::type_name<decltype(scope_timer)>());
+    Igor::Debug("typeof(scope_timer) = {}", Igor::type_name<decltype(scope_timer)>());
     IGOR_TIME_SCOPE("Inner scope") {
       Igor::Debug("typeof(IGOR__SCOPE__TIMER__NAME__11) = {}",
                   Igor::type_name<decltype(IGOR__SCOPE__TIMER__NAME__11)>());
