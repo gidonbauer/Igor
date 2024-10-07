@@ -25,6 +25,7 @@
 #include <cstdint>
 #include <format>
 #include <iostream>
+#include <ranges>
 #include <source_location>
 #include <string>
 
@@ -39,12 +40,35 @@ enum class ExitCode : int {  // NOLINT(performance-enum-size)
 
 namespace detail {
 
-[[nodiscard]] constexpr auto error_loc(
-    const std::source_location loc = std::source_location::current()) noexcept -> std::string {
+[[nodiscard]] constexpr auto strip_path(std::string_view full_path) noexcept -> std::string_view {
+#if defined(WIN32) || defined(_WIN32)
+#error "Not implemented yet: Requires different path separator ('\\') and potentially uses wchar"
+#else
+  constexpr char separator = '/';
+#endif
+
+  size_t counter = 0;
+  for (char c : std::ranges::reverse_view(full_path)) {
+    if (c == separator) {
+      break;
+    }
+    ++counter;
+  }
+
+  return full_path.substr(full_path.size() - counter, counter);
+}
+
+[[nodiscard]] constexpr auto
+error_loc(const std::source_location loc = std::source_location::current()) noexcept
+    -> std::string {
   try {
     return std::format("`{}` (\033[95m{}:{}:{}\033[0m)",
                        loc.function_name(),
+#ifdef IGOR_ERROR_LOC_FULL_PATH
                        loc.file_name(),
+#else
+                       strip_path(loc.file_name()),
+#endif  // IGOR_ERROR_LOC_FULL_PATH
                        loc.line(),
                        loc.column());
   } catch (const std::exception& e) {

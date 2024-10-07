@@ -24,8 +24,10 @@
 
 #include "./Logging.hpp"
 #include "./Macros.hpp"
+#include "./Math.hpp"
 #include "./MemoryToString.hpp"
 #include "./ProgressBar.hpp"
+#include "./StaticVector.hpp"
 #include "./Timer.hpp"
 #include "./TypeName.hpp"
 
