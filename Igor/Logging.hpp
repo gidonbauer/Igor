@@ -247,7 +247,7 @@ Assert(std::format_string<Args...>, Args&&...) -> Assert<Args...>;
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define IGOR_ASSERT(cond, ...)                                                                     \
   do {                                                                                             \
-    if (!(cond)) {                                                                                 \
+    if (!(cond)) [[unlikely]] {                                                                    \
       using t = decltype(std::make_tuple(__VA_ARGS__));                                            \
       static_assert(std::tuple_size_v<t> > 0,                                                      \
                     "`IGOR_ASSERT` requires an error message, please provide a format string and " \
