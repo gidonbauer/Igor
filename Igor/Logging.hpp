@@ -51,6 +51,13 @@ enum class ExitCode : int {  // NOLINT(performance-enum-size)
   ASSERT,
 };
 
+[[noreturn]] void exit(int exit_code) noexcept {
+  for (const auto& f : on_death) {
+    f();
+  }
+  std::exit(exit_code);
+}
+
 namespace detail {
 
 #ifndef IGOR_USE_FMT
@@ -92,10 +99,7 @@ error_loc(const std::source_location loc = std::source_location::current()) noex
                           loc.column());
   } catch (const std::exception& e) {
     std::cerr << "Could not format the error location: " << e.what() << '\n';
-    for (const auto& f : on_death) {
-      f();
-    }
-    std::exit(static_cast<int>(ExitCode::PANIC));
+    Igor::exit(static_cast<int>(ExitCode::PANIC));
   }
 }
 
@@ -139,12 +143,7 @@ class Print {
   constexpr Print(detail::format_string<Args...> fmt, Args&&... args) noexcept {
     auto& out = level_stream(level);
     out << level_repr(level) << detail::format(fmt, std::forward<Args>(args)...) << '\n';
-    if constexpr (exit_code != ExitCode::NO_EARLY_EXIT) {
-      for (const auto& f : on_death) {
-        f();
-      }
-      std::exit(static_cast<int>(exit_code));
-    }
+    if constexpr (exit_code != ExitCode::NO_EARLY_EXIT) { Igor::exit(static_cast<int>(exit_code)); }
   }
 
   constexpr Print(const std::source_location loc,
@@ -153,12 +152,7 @@ class Print {
     auto& out = level_stream(level);
     out << level_repr(level) << error_loc(loc) << ": "
         << detail::format(fmt, std::forward<Args>(args)...) << '\n';
-    if constexpr (exit_code != ExitCode::NO_EARLY_EXIT) {
-      for (const auto& f : on_death) {
-        f();
-      }
-      std::exit(static_cast<int>(exit_code));
-    }
+    if constexpr (exit_code != ExitCode::NO_EARLY_EXIT) { Igor::exit(static_cast<int>(exit_code)); }
   }
 };
 
