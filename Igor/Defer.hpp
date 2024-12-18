@@ -28,12 +28,12 @@ namespace Igor {
 
 template <typename ON_EXIT>
 class Defer {
-  ON_EXIT on_exit;
+  ON_EXIT m_on_exit;
 
  public:
   [[nodiscard]] constexpr Defer(ON_EXIT on_exit) noexcept
-      : on_exit(std::move(on_exit)) {}
-  constexpr ~Defer() noexcept { on_exit(); }
+      : m_on_exit(std::move(on_exit)) {}
+  constexpr ~Defer() noexcept { m_on_exit(); }
 
   Defer(const Defer&)          = delete;
   Defer(Defer&&)               = delete;
