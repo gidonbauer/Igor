@@ -26,3 +26,30 @@ add_library(Igor INTERFACE
                 ./Igor/Timer.hpp
                 ./Igor/TypeName.hpp)
 target_include_directories(Igor INTERFACE .)
+
+option(IGOR_BUILD_TESTS OFF)
+if(IGOR_BUILD_TESTS)
+  set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+  set(CMAKE_BUILD_TYPE "Debug")
+  add_compile_options(-Wall -Wextra -pedantic -Wconversion -Wshadow)
+  add_compile_options(-fsanitize=address,undefined,leak -O0)
+  add_link_options(-fsanitize=address,undefined,leak)
+
+  include(FetchContent)
+  enable_testing()
+
+  set(BUILD_GMOCK OFF)
+  FetchContent_Declare(
+      googletest
+      GIT_REPOSITORY https://github.com/google/googletest.git
+      GIT_TAG        main
+  )
+  # For Windows: Prevent overriding the parent project's compiler/linker settings
+  set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+  FetchContent_MakeAvailable(googletest)
+
+  message(STATUS "Build tests")
+  
+  add_subdirectory(${CMAKE_SOURCE_DIR}/test/)
+endif()

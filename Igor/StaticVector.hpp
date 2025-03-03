@@ -24,262 +24,505 @@
 
 #include <cstddef>
 #include <initializer_list>
+#include <iterator>
+#include <type_traits>
 
-#include "./Logging.hpp"
+#include "Igor/Logging.hpp"
 
 namespace Igor {
 
+namespace detail {
+
+// =================================================================================================
+// NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
 template <typename Element, size_t CAPACITY>
-class StaticVector {
-  std::array<Element, CAPACITY> m_data{};
-  size_t m_size = 0;
+struct UninitializedArray {
+  static constexpr bool constructor_and_destructor_are_cheap =
+      std::is_trivially_default_constructible_v<Element> &&
+      std::is_trivially_destructible_v<Element>;
+
+  using Storage_t = std::conditional_t<constructor_and_destructor_are_cheap,
+                                       Element[CAPACITY],                       // NOLINT
+                                       std::byte[CAPACITY * sizeof(Element)]>;  // NOLINT
+  alignas(Element) Storage_t m_data;
+
+  [[nodiscard]] constexpr auto data() noexcept -> Element* {
+    if constexpr (constructor_and_destructor_are_cheap) {
+      return m_data;
+    } else {
+      return reinterpret_cast<Element*>(m_data);
+    }
+  }
+  [[nodiscard]] constexpr auto data() const noexcept -> const Element* {
+    if constexpr (constructor_and_destructor_are_cheap) {
+      return m_data;
+    } else {
+      return reinterpret_cast<const Element*>(m_data);
+    }
+  }
+};
+// NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
+
+// =================================================================================================
+template <typename Element>
+class ReverseIterator {
+  Element* m_ptr = nullptr;
 
  public:
-  using value_type             = Element;
-  using size_type              = std::array<Element, CAPACITY>::size_type;
-  using difference_type        = std::array<Element, CAPACITY>::difference_type;
-  using reference              = value_type&;
-  using const_reference        = const value_type&;
-  using pointer                = std::array<Element, CAPACITY>::pointer;
-  using const_pointer          = std::array<Element, CAPACITY>::const_pointer;
-  using iterator               = std::array<Element, CAPACITY>::iterator;
-  using const_iterator         = std::array<Element, CAPACITY>::const_iterator;
-  using reverse_iterator       = std::array<Element, CAPACITY>::reverse_iterator;
-  using const_reverse_iterator = std::array<Element, CAPACITY>::const_reverse_iterator;
+  using difference_type = ssize_t;
+  using value_type      = Element;
+  using element_type    = Element;
+  using pointer         = Element*;
+  using reference       = Element&;
 
-  // -----------------------------------------------------------------------------------------------
-  constexpr StaticVector() noexcept = default;
+  constexpr ReverseIterator() noexcept = default;
+  constexpr ReverseIterator(Element* ptr) noexcept
+      : m_ptr(ptr) {}
 
-  constexpr StaticVector(size_t size) noexcept
-      : m_size(size) {
-    if (size > CAPACITY) { Igor::Panic("Size {} is greater than capacity {}.", size, CAPACITY); }
+  constexpr auto operator==(const ReverseIterator<Element>& other) const noexcept -> bool {
+    return m_ptr == other.m_ptr;
   }
 
-  constexpr StaticVector(size_t size, Element value) noexcept
-      : m_size(size) {
-    if (size > CAPACITY) { Igor::Panic("Size {} is greater than capacity {}.", size, CAPACITY); }
-    std::fill(begin(), end(), value);
+  constexpr auto operator<=>(const ReverseIterator<Element>& other) const noexcept {
+    return m_ptr <=> other.m_ptr;
   }
 
-  constexpr StaticVector(std::initializer_list<Element> values) noexcept {
-    if (values.size() > CAPACITY) {
-      Igor::Panic("Size {} is greater than capacity {}.", values.size(), CAPACITY);
-    }
-    m_size = values.size();
-    std::move(values.begin(), values.end(), m_data.begin());
+  constexpr auto operator*() noexcept -> reference {
+    IGOR_ASSERT(m_ptr != nullptr, "ReverseIterator cannot point to nullptr.");
+    return *m_ptr;
+  }
+  constexpr auto operator*() const noexcept -> reference {
+    IGOR_ASSERT(m_ptr != nullptr, "ReverseIterator cannot point to nullptr.");
+    return *m_ptr;
+  }
+  constexpr auto operator->() noexcept -> pointer {
+    IGOR_ASSERT(m_ptr != nullptr, "ReverseIterator cannot point to nullptr.");
+    return m_ptr;
+  }
+  constexpr auto operator->() const noexcept -> pointer {
+    IGOR_ASSERT(m_ptr != nullptr, "ReverseIterator cannot point to nullptr.");
+    return m_ptr;
+  }
+  constexpr auto operator[](difference_type offset) noexcept -> reference {
+    return *(m_ptr - offset);
+  }
+  constexpr auto operator[](difference_type offset) const noexcept -> reference {
+    return *(m_ptr - offset);
   }
 
-  template <size_t OTHER_CAPACITY>
-  constexpr StaticVector(const StaticVector<Element, OTHER_CAPACITY>& other) noexcept
-      : m_size(other.size()) {
-    if constexpr (CAPACITY < OTHER_CAPACITY) {
-      if (other.size() > CAPACITY) {
-        Igor::Panic("Size {} is greater than capacity {}.", other.size(), CAPACITY);
-      }
-    }
-    std::copy(other.begin(), other.end(), begin());
+  constexpr auto operator++() noexcept -> ReverseIterator& {
+    m_ptr -= 1;
+    return *this;
+  }
+  constexpr auto operator++(int) noexcept -> ReverseIterator {
+    const auto res = *this;
+    m_ptr -= 1;
+    return res;
   }
 
-  template <size_t OTHER_CAPACITY>
-  constexpr StaticVector(StaticVector<Element, OTHER_CAPACITY>&& other) noexcept
-      : m_size(other.size()) {
-    if constexpr (CAPACITY < OTHER_CAPACITY) {
-      if (other.size() > CAPACITY) {
-        Igor::Panic("Size {} is greater than capacity {}.", other.size(), CAPACITY);
-      }
-    }
-    std::move(other.begin(), other.end(), begin());
+  constexpr auto operator--() noexcept -> ReverseIterator& {
+    m_ptr += 1;
+    return *this;
+  }
+  constexpr auto operator--(int) noexcept -> ReverseIterator {
+    const auto res = *this;
+    m_ptr += 1;
+    return res;
   }
 
-  template <size_t OTHER_CAPACITY>
-  constexpr auto operator=(const StaticVector<Element, OTHER_CAPACITY>& other) noexcept
-      -> StaticVector& {
-    if constexpr (CAPACITY < OTHER_CAPACITY) {
-      if (other.size() > CAPACITY) {
-        Igor::Panic("Size {} is greater than capacity {}.", other.size(), CAPACITY);
-      }
-    }
-    m_size = other.size();
-    std::copy(other.begin(), other.end(), begin());
-
+  constexpr auto operator+(difference_type offset) const noexcept -> ReverseIterator {
+    return ReverseIterator{m_ptr - offset};
+  }
+  constexpr auto operator+=(difference_type offset) noexcept -> ReverseIterator& {
+    m_ptr -= offset;
     return *this;
   }
 
-  template <size_t OTHER_CAPACITY>
-  constexpr auto operator=(StaticVector<Element, OTHER_CAPACITY>&& other) noexcept
-      -> StaticVector& {
-    if constexpr (CAPACITY < OTHER_CAPACITY) {
-      if (other.size() > CAPACITY) {
-        Igor::Panic("Size {} is greater than capacity {}.", other.size(), CAPACITY);
-      }
-    }
-    m_size = other.size();
-    std::move(other.begin(), other.end(), begin());
+  friend constexpr auto operator+(difference_type offset, ReverseIterator iter) noexcept
+      -> ReverseIterator {
+    iter.m_ptr -= offset;
+    return iter;
+  }
 
+  constexpr auto operator-(difference_type offset) const noexcept -> ReverseIterator {
+    return ReverseIterator{m_ptr + offset};
+  }
+  constexpr auto operator-=(difference_type offset) noexcept -> ReverseIterator& {
+    m_ptr += offset;
     return *this;
   }
 
-  constexpr ~StaticVector() noexcept = default;
-
-  // -----------------------------------------------------------------------------------------------
-  [[nodiscard]] constexpr auto operator[](size_t idx) noexcept -> reference {
-    IGOR_ASSERT(idx < m_size, "Index {} is out of bounds for vector of size {}.", idx, m_size);
-    return m_data[idx];
-  }
-
-  [[nodiscard]] constexpr auto operator[](size_t idx) const noexcept -> const_reference {
-    IGOR_ASSERT(idx < m_size, "Index {} is out of bounds for vector of size {}.", idx, m_size);
-    return m_data[idx];
-  }
-
-  [[nodiscard]] constexpr auto at(size_t idx) -> reference {
-    if (idx >= m_size) {
-      throw std::out_of_range(
-          std::format("Index {} is out of bounds for vector of size {}.", idx, m_size));
-    }
-    return m_data[idx];
-  }
-
-  [[nodiscard]] constexpr auto at(size_t idx) const -> const_reference {
-    if (idx >= m_size) {
-      throw std::out_of_range(
-          std::format("Index {} is out of bounds for vector of size {}.", idx, m_size));
-    }
-    return m_data[idx];
-  }
-
-  // -----------------------------------------------------------------------------------------------
-  [[nodiscard]] constexpr auto begin() noexcept -> iterator { return m_data.begin(); }
-  [[nodiscard]] constexpr auto begin() const noexcept -> const_iterator { return m_data.cbegin(); }
-  [[nodiscard]] constexpr auto cbegin() const noexcept -> const_iterator { return m_data.cbegin(); }
-
-  [[nodiscard]] constexpr auto end() noexcept -> iterator {
-    return std::next(m_data.begin(), static_cast<difference_type>(m_size));
-  }
-  [[nodiscard]] constexpr auto end() const noexcept -> const_iterator {
-    return std::next(m_data.cbegin(), static_cast<difference_type>(m_size));
-  }
-  [[nodiscard]] constexpr auto cend() const noexcept -> const_iterator {
-    return std::next(m_data.cbegin(), static_cast<difference_type>(m_size));
-  }
-
-  [[nodiscard]] constexpr auto rbegin() noexcept -> reverse_iterator {
-    return std::next(m_data.rbegin(), static_cast<difference_type>(CAPACITY - m_size));
-  }
-  [[nodiscard]] constexpr auto rbegin() const noexcept -> const_reverse_iterator {
-    return std::next(m_data.crbegin(), static_cast<difference_type>(CAPACITY - m_size));
-  }
-  [[nodiscard]] constexpr auto crbegin() const noexcept -> const_reverse_iterator {
-    return std::next(m_data.crbegin(), static_cast<difference_type>(CAPACITY - m_size));
-  }
-
-  [[nodiscard]] constexpr auto rend() noexcept -> reverse_iterator {
-    return std::next(rbegin(), static_cast<difference_type>(m_size));
-  }
-  [[nodiscard]] constexpr auto rend() const noexcept -> const_reverse_iterator {
-    return std::next(crbegin(), static_cast<difference_type>(m_size));
-  }
-  [[nodiscard]] constexpr auto crend() const noexcept -> const_reverse_iterator {
-    return std::next(crbegin(), static_cast<difference_type>(m_size));
-  }
-
-  // -----------------------------------------------------------------------------------------------
-  [[nodiscard]] constexpr auto front() noexcept -> reference {
-    IGOR_ASSERT(m_size > 0, "StaticVector is empty.");
-    return m_data[0];
-  }
-  [[nodiscard]] constexpr auto front() const noexcept -> const_reference {
-    IGOR_ASSERT(m_size > 0, "StaticVector is empty.");
-    return m_data[0];
-  }
-  [[nodiscard]] constexpr auto back() noexcept -> reference {
-    IGOR_ASSERT(m_size > 0, "StaticVector is empty.");
-    return m_data[m_size - 1];
-  }
-  [[nodiscard]] constexpr auto back() const noexcept -> const_reference {
-    IGOR_ASSERT(m_size > 0, "StaticVector is empty.");
-    return m_data[m_size - 1];
-  }
-
-  [[nodiscard]] constexpr auto data() noexcept -> pointer { return m_data.data(); }
-  [[nodiscard]] constexpr auto data() const noexcept -> const_pointer { return m_data.data(); }
-
-  // -----------------------------------------------------------------------------------------------
-  [[nodiscard]] constexpr auto empty() const noexcept -> bool { return m_size == 0; }
-
-  [[nodiscard]] constexpr auto size() const noexcept -> size_t { return m_size; }
-
-  [[nodiscard]] constexpr auto max_size() const noexcept -> size_t { return CAPACITY; }
-
-  [[nodiscard]] constexpr auto capacity() const noexcept -> size_t { return CAPACITY; }
-
-  constexpr void reserve(size_t new_capacity) const noexcept {
-    IGOR_ASSERT(new_capacity <= CAPACITY,
-                "Requested capacity {} cannot fit into StaticVector with capacity {}",
-                new_capacity,
-                CAPACITY);
-  }
-
-  constexpr void shrink_to_fit() const noexcept {}
-
-  // -----------------------------------------------------------------------------------------------
-  constexpr void clear() noexcept { m_size = 0; }
-
-  constexpr void push_back(const Element& e) noexcept {
-    IGOR_ASSERT(m_size + 1 <= CAPACITY, "StaticVector is already at max. capacity {}", CAPACITY);
-    m_data[m_size++] = e;
-  }
-
-  constexpr void push_back(Element&& e) noexcept {
-    IGOR_ASSERT(m_size + 1 <= CAPACITY, "StaticVector is already at max. capacity {}", CAPACITY);
-    m_data[m_size++] = std::move(e);
-  }
-
-  template <typename... Params>
-  constexpr void emplace_back(Params&&... params) noexcept {
-    IGOR_ASSERT(m_size + 1 <= CAPACITY, "StaticVector is already at max. capacity {}", CAPACITY);
-    m_data[m_size++] = value_type{std::forward<Params>(params)...};
-  }
-
-  // -----------------------------------------------------------------------------------------------
-  constexpr auto erase(iterator pos) noexcept -> iterator { return erase(pos, std::next(pos)); }
-  constexpr auto erase(iterator first, iterator last) noexcept -> iterator {
-    std::move(last, end(), first);
-
-    const auto num_elems_removed = std::distance(first, last);
-    IGOR_ASSERT(num_elems_removed >= 0,
-                "first > last, invalid iterator pair; num_elems_removed={}",
-                num_elems_removed);
-    IGOR_ASSERT(
-        m_size >= static_cast<size_t>(num_elems_removed),
-        "Try to remove more elements from StaticVector than its capacity; num_elems_removed={}",
-        num_elems_removed);
-    m_size -= static_cast<size_t>(num_elems_removed);
-
-    return first;
-  }
-
-  constexpr auto erase(const_iterator pos) noexcept -> const_iterator {
-    return erase(pos, std::next(pos));
-  }
-  constexpr auto erase(const_iterator first, const_iterator last) noexcept -> const_iterator {
-    iterator non_const_first = std::next(begin(), std::distance(cbegin(), first));
-    std::move(last, cend(), non_const_first);
-
-    const auto num_elems_removed = std::distance(first, last);
-    IGOR_ASSERT(num_elems_removed >= 0,
-                "first > last, invalid iterator pair; num_elems_removed={}",
-                num_elems_removed);
-    IGOR_ASSERT(
-        m_size >= static_cast<size_t>(num_elems_removed),
-        "Try to remove more elements from StaticVector than its capacity; num_elems_removed={}",
-        num_elems_removed);
-    m_size -= static_cast<size_t>(num_elems_removed);
-
-    return first;
+  constexpr auto operator-(const ReverseIterator& other) const noexcept -> difference_type {
+    return other.m_ptr - m_ptr;
   }
 };
 
+// =================================================================================================
+template <typename Element>
+class ConstReverseIterator {
+  const Element* m_ptr = nullptr;
+
+ public:
+  using difference_type = ssize_t;
+  using value_type      = Element;
+  using element_type    = const Element;
+  using pointer         = const Element*;
+  using reference       = const Element&;
+
+  constexpr ConstReverseIterator() noexcept = default;
+  constexpr ConstReverseIterator(const Element* ptr) noexcept
+      : m_ptr(ptr) {}
+
+  constexpr auto operator==(const ConstReverseIterator<Element>& other) const noexcept -> bool {
+    return m_ptr == other.m_ptr;
+  }
+
+  constexpr auto operator<=>(const ConstReverseIterator<Element>& other) const noexcept {
+    return m_ptr <=> other.m_ptr;
+  }
+
+  constexpr auto operator*() const noexcept -> reference {
+    IGOR_ASSERT(m_ptr != nullptr, "ReverseIterator cannot point to nullptr.");
+    return *m_ptr;
+  }
+  constexpr auto operator->() const noexcept -> pointer {
+    IGOR_ASSERT(m_ptr != nullptr, "ReverseIterator cannot point to nullptr.");
+    return m_ptr;
+  }
+  constexpr auto operator[](difference_type offset) const noexcept -> reference {
+    return *(m_ptr - offset);
+  }
+
+  constexpr auto operator++() noexcept -> ConstReverseIterator& {
+    m_ptr -= 1;
+    return *this;
+  }
+  constexpr auto operator++(int) noexcept -> ConstReverseIterator {
+    const auto res = *this;
+    m_ptr -= 1;
+    return res;
+  }
+
+  constexpr auto operator--() noexcept -> ConstReverseIterator& {
+    m_ptr += 1;
+    return *this;
+  }
+  constexpr auto operator--(int) noexcept -> ConstReverseIterator {
+    const auto res = *this;
+    m_ptr += 1;
+    return res;
+  }
+
+  constexpr auto operator+(difference_type offset) const noexcept -> ConstReverseIterator {
+    return ReverseIterator{m_ptr - offset};
+  }
+  constexpr auto operator+=(difference_type offset) noexcept -> ConstReverseIterator& {
+    m_ptr -= offset;
+    return *this;
+  }
+  friend constexpr auto operator+(difference_type offset, ConstReverseIterator iter) noexcept
+      -> ConstReverseIterator {
+    iter.m_ptr -= offset;
+    return iter;
+  }
+
+  constexpr auto operator-(difference_type offset) const noexcept -> ConstReverseIterator {
+    return ReverseIterator{m_ptr + offset};
+  }
+  constexpr auto operator-=(difference_type offset) noexcept -> ConstReverseIterator& {
+    m_ptr += offset;
+    return *this;
+  }
+
+  constexpr auto operator-(const ConstReverseIterator& other) const noexcept -> difference_type {
+    return other.m_ptr - m_ptr;
+  }
+};
+
+}  // namespace detail
+
+// =================================================================================================
+template <typename Element, size_t CAPACITY>
+class StaticVector {
+  detail::UninitializedArray<Element, CAPACITY> m_storage;
+  size_t m_size = 0UZ;
+
+ public:
+  using value_type             = Element;
+  using size_type              = size_t;
+  using difference_type        = ssize_t;
+  using reference              = value_type&;
+  using const_reference        = const value_type&;
+  using pointer                = value_type*;
+  using const_pointer          = const value_type*;
+  using iterator               = pointer;
+  using const_iterator         = const_pointer;
+  using reverse_iterator       = detail::ReverseIterator<Element>;
+  using const_reverse_iterator = detail::ConstReverseIterator<Element>;
+
+  static constexpr auto constructor_and_destructor_are_cheap =
+      detail::UninitializedArray<Element, CAPACITY>::constructor_and_destructor_are_cheap;
+
+  constexpr StaticVector() noexcept = default;
+  constexpr StaticVector(size_t size, const Element& init = Element{}) noexcept {
+    for (size_t i = 0; i < size; ++i) {
+      push_back(init);
+    }
+  }
+  constexpr StaticVector(std::initializer_list<Element> values) noexcept {
+    for (auto& v : values) {
+      push_back(std::move(v));
+    }
+  }
+
+  // - Copy constructor ----------------------------------------------------------------------------
+  constexpr StaticVector(const StaticVector& other) noexcept {
+    for (const auto& e : other) {
+      push_back(e);
+    }
+  }
+
+  template <typename OtherElement, size_t OTHER_CAPACITY>
+  constexpr StaticVector(const StaticVector<OtherElement, OTHER_CAPACITY>& other) noexcept {
+    if constexpr (OTHER_CAPACITY > CAPACITY) {
+      IGOR_ASSERT(other.size() <= CAPACITY,
+                  "Size of vector must be less than or equal to the capacity {}.",
+                  CAPACITY);
+    }
+
+    for (const auto& e : other) {
+      push_back(Element{e});
+    }
+  }
+
+  // - Move constructor ----------------------------------------------------------------------------
+  constexpr StaticVector(StaticVector&& other) noexcept {
+    for (auto& e : other) {
+      push_back(std::move(e));
+    }
+  }
+
+  template <typename OtherElement, size_t OTHER_CAPACITY>
+  constexpr StaticVector(StaticVector<OtherElement, OTHER_CAPACITY>&& other) noexcept {
+    if constexpr (OTHER_CAPACITY > CAPACITY) {
+      IGOR_ASSERT(other.size() <= CAPACITY,
+                  "Size of vector must be less than or equal to the capacity {}.",
+                  CAPACITY);
+    }
+
+    for (auto& e : other) {
+      push_back(Element{std::move(e)});
+    }
+  }
+
+  // - Copy assignment -----------------------------------------------------------------------------
+  constexpr auto operator=(const StaticVector& other) noexcept -> StaticVector& {
+    if (this != &other) {
+      clear();
+      for (const auto& e : other) {
+        push_back(e);
+      }
+    }
+    return *this;
+  }
+
+  template <typename OtherElement, size_t OTHER_CAPACITY>
+  constexpr auto operator=(const StaticVector<OtherElement, OTHER_CAPACITY>& other) noexcept
+      -> StaticVector& {
+    if constexpr (OTHER_CAPACITY > CAPACITY) {
+      IGOR_ASSERT(other.size() <= CAPACITY,
+                  "Size of vector must be less than or equal to the capacity {}.",
+                  CAPACITY);
+    }
+
+    clear();
+    for (const auto& e : other) {
+      push_back(Element{e});
+    }
+    return *this;
+  }
+
+  // - Move assignment -----------------------------------------------------------------------------
+  constexpr auto operator=(StaticVector&& other) noexcept -> StaticVector& {
+    if (this != &other) {
+      clear();
+      for (auto& e : other) {
+        push_back(std::move(e));
+      }
+    }
+    return *this;
+  }
+
+  template <typename OtherElement, size_t OTHER_CAPACITY>
+  constexpr auto operator=(StaticVector<OtherElement, OTHER_CAPACITY>&& other) noexcept
+      -> StaticVector& {
+    if constexpr (OTHER_CAPACITY > CAPACITY) {
+      IGOR_ASSERT(other.size() <= CAPACITY,
+                  "Size of vector must be less than or equal to the capacity {}.",
+                  CAPACITY);
+    }
+
+    clear();
+    for (auto& e : other) {
+      push_back(std::move(e));
+    }
+    return *this;
+  }
+
+  // -------------------------------------------------------------------------------------------------
+  constexpr ~StaticVector() noexcept = default;
+  constexpr ~StaticVector() noexcept
+  requires(!std::is_trivially_destructible_v<Element>)
+  {
+    for (size_t i = 0; i < m_size; ++i) {
+      std::destroy_at(m_storage.data() + i);
+    }
+  }
+
+  // -------------------------------------------------------------------------------------------------
+  [[nodiscard]] constexpr auto operator[](size_t idx) noexcept -> reference {
+    return *(m_storage.data() + idx);
+  }
+  [[nodiscard]] constexpr auto operator[](size_t idx) const noexcept -> const_reference {
+    return *(m_storage.data() + idx);
+  }
+
+  // -----------------------------------------------------------------------------------------------
+  [[nodiscard]] constexpr auto data() noexcept -> pointer { return m_storage.data(); }
+  [[nodiscard]] constexpr auto data() const noexcept -> const_pointer { return m_storage.data(); }
+
+  // -----------------------------------------------------------------------------------------------
+  [[nodiscard]] constexpr auto empty() const noexcept -> bool { return m_size == 0UZ; }
+  [[nodiscard]] constexpr auto size() const noexcept -> size_type { return m_size; }
+  [[nodiscard]] constexpr auto max_size() const noexcept -> size_type { return CAPACITY; }
+  constexpr void reserve([[maybe_unused]] size_type reserve_capacity) const noexcept {
+    IGOR_ASSERT(
+        reserve_capacity <= CAPACITY, "Reserved capacity must be less than CAPACITY {}.", CAPACITY);
+  }
+  [[nodiscard]] constexpr auto capacity() const noexcept -> size_type { return CAPACITY; }
+  constexpr void shrink_to_fit() const noexcept { /* NOOP */ }
+
+  // -----------------------------------------------------------------------------------------------
+  [[nodiscard]] constexpr auto begin() noexcept -> iterator { return m_storage.data(); }
+  [[nodiscard]] constexpr auto begin() const noexcept -> const_iterator { return m_storage.data(); }
+  [[nodiscard]] constexpr auto cbegin() const noexcept -> const_iterator {
+    return m_storage.data();
+  }
+  [[nodiscard]] constexpr auto end() noexcept -> iterator { return m_storage.data() + m_size; }
+  [[nodiscard]] constexpr auto end() const noexcept -> const_iterator {
+    return m_storage.data() + m_size;
+  }
+  [[nodiscard]] constexpr auto cend() const noexcept -> const_iterator {
+    return m_storage.data() + m_size;
+  }
+
+  // -----------------------------------------------------------------------------------------------
+  [[nodiscard]] constexpr auto rbegin() noexcept -> reverse_iterator {
+    return reverse_iterator{m_storage.data() + static_cast<difference_type>(m_size) - 1};
+  }
+  [[nodiscard]] constexpr auto rbegin() const noexcept -> const_reverse_iterator {
+    return const_reverse_iterator{m_storage.data() + static_cast<difference_type>(m_size) - 1};
+  }
+  [[nodiscard]] constexpr auto crbegin() const noexcept -> const_reverse_iterator {
+    return const_reverse_iterator{m_storage.data() + static_cast<difference_type>(m_size) - 1};
+  }
+  [[nodiscard]] constexpr auto rend() noexcept -> reverse_iterator {
+    return reverse_iterator{m_storage.data() - 1};
+  }
+  [[nodiscard]] constexpr auto rend() const noexcept -> const_reverse_iterator {
+    return const_reverse_iterator{m_storage.data() - 1};
+  }
+  [[nodiscard]] constexpr auto crend() const noexcept -> const_reverse_iterator {
+    return const_reverse_iterator{m_storage.data() - 1};
+  }
+
+  // ------------------------------------------------------------------------------------------------
+  [[nodiscard]] constexpr auto front() noexcept -> reference {
+    IGOR_ASSERT(m_size > 0UZ, "Vector must contain at least one element.");
+    return operator[](0UZ);
+  }
+  [[nodiscard]] constexpr auto front() const noexcept -> const_reference {
+    IGOR_ASSERT(m_size > 0UZ, "Vector must contain at least one element.");
+    return operator[](0UZ);
+  }
+  [[nodiscard]] constexpr auto back() noexcept -> reference {
+    IGOR_ASSERT(m_size > 0UZ, "Vector must contain at least one element.");
+    return operator[](m_size - 1UZ);
+  }
+  [[nodiscard]] constexpr auto back() const noexcept -> const_reference {
+    IGOR_ASSERT(m_size > 0UZ, "Vector must contain at least one element.");
+    return operator[](m_size - 1UZ);
+  }
+
+  // -------------------------------------------------------------------------------------------------
+  constexpr void clear() noexcept {
+    if constexpr (!std::is_trivially_destructible_v<Element>) {
+      for (size_t i = 0; i < m_size; ++i) {
+        std::destroy_at(m_storage.data() + i);
+      }
+    }
+    m_size = 0UZ;
+  }
+
+  // -------------------------------------------------------------------------------------------------
+  constexpr void push_back(const Element& e) noexcept {
+    IGOR_ASSERT(m_size < CAPACITY, "Size may not exceed capacity {}.", CAPACITY);
+    std::construct_at(m_storage.data() + m_size, e);
+    m_size += 1;
+  }
+  constexpr void push_back(Element&& e) noexcept {
+    IGOR_ASSERT(m_size < CAPACITY, "Size may not exceed capacity {}.", CAPACITY);
+    std::construct_at(m_storage.data() + m_size, std::move(e));
+    m_size += 1;
+  }
+
+  // -------------------------------------------------------------------------------------------------
+  template <typename... Args>
+  constexpr void emplace_back(Args&&... args) noexcept {
+    IGOR_ASSERT(m_size < CAPACITY, "Size may not exceed capacity {}.", CAPACITY);
+    std::construct_at(m_storage.data() + m_size, std::forward<Args>(args)...);
+    m_size += 1;
+  }
+
+  // -------------------------------------------------------------------------------------------------
+  constexpr auto pop_back() noexcept -> value_type {
+    IGOR_ASSERT(m_size > 0, "Vector cannot be empty.");
+    m_size -= 1;
+    auto tmp = std::move(operator[](m_size));
+    std::destroy_at(m_storage.data() + m_size);
+    return tmp;
+  }
+
+  // -------------------------------------------------------------------------------------------------
+  // TODO:
+  // - insert
+  // - insert_range
+  // - emplace
+  // - erase
+  // - append_range
+  // - resize
+  // - swap
+};
+
 }  // namespace Igor
+
+// =================================================================================================
+template <typename Element>
+struct std::iterator_traits<Igor::detail::ReverseIterator<Element>> {
+  using difference_type   = Igor::detail::ReverseIterator<Element>::difference_type;
+  using value_type        = Igor::detail::ReverseIterator<Element>::value_type;
+  using pointer           = Igor::detail::ReverseIterator<Element>::pointer;
+  using reference         = Igor::detail::ReverseIterator<Element>::reference;
+  using iterator_category = std::random_access_iterator_tag;
+};
+
+template <typename Element>
+struct std::iterator_traits<Igor::detail::ConstReverseIterator<Element>> {
+  using difference_type   = Igor::detail::ConstReverseIterator<Element>::difference_type;
+  using value_type        = Igor::detail::ConstReverseIterator<Element>::value_type;
+  using pointer           = Igor::detail::ConstReverseIterator<Element>::pointer;
+  using reference         = Igor::detail::ConstReverseIterator<Element>::reference;
+  using iterator_category = std::random_access_iterator_tag;
+};
 
 #endif  // IGOR_STATIC_VECTOR_HPP_

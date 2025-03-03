@@ -262,12 +262,13 @@ Assert(detail::format_string<Args...>, Args&&...) -> Assert<Args...>;
   do {                                                                                             \
     /* NOLINTNEXTLINE(readability-simplify-boolean-expr) */                                        \
     if (!(cond)) [[unlikely]] {                                                                    \
-      using va_args_tuple__ = decltype(std::make_tuple(__VA_ARGS__));                              \
-      static_assert(std::tuple_size_v<va_args_tuple__> > 0,                                        \
+      using IGOR_va_args_tuple_ = decltype(std::make_tuple(__VA_ARGS__));                          \
+      static_assert(std::tuple_size_v<IGOR_va_args_tuple_> > 0,                                    \
                     "`IGOR_ASSERT` requires an error message, please provide a format string and " \
                     "the corresponding values");                                                   \
-      static_assert(std::is_convertible_v<std::tuple_element_t<0, va_args_tuple__>, std::string>,  \
-                    "First argument for error message must be a format string.");                  \
+      static_assert(                                                                               \
+          std::is_convertible_v<std::tuple_element_t<0, IGOR_va_args_tuple_>, std::string>,        \
+          "First argument for error message must be a format string.");                            \
       Igor::Assert("Assertion `{}` failed: {}", #cond, Igor::detail::format(__VA_ARGS__));         \
     }                                                                                              \
   } while (false)

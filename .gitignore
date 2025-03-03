@@ -1,7 +1,4 @@
 vscode/
 .cache/
 
-test_*
-!test_*.cpp
-
-compile_commands.json
+build/

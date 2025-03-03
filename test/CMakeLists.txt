@@ -1,0 +1,26 @@
+set(executables
+  test_MemoryToString
+  test_StripPath
+  test_Math
+  test_Defer
+  test_OnDeath
+  test_Assert
+  test_DisableAssert
+  test_Logging
+
+  test_StaticVector_Initialize
+  test_StaticVector_Destruct
+  test_StaticVector_Iterator
+)
+
+include(GoogleTest)
+foreach(exec ${executables})
+    # - Define executables ------
+    add_executable(${exec} ${exec}.cpp)
+
+    # - Link libraries ---------
+    target_link_libraries(${exec} PRIVATE GTest::gtest_main)
+    target_link_libraries(${exec} PRIVATE Igor)
+
+    gtest_discover_tests(${exec})
+endforeach()
