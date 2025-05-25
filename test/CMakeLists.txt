@@ -7,6 +7,7 @@ set(executables
   test_Assert
   test_DisableAssert
   test_Logging
+  test_MdArray
 
   test_StaticVector_Initialize
   test_StaticVector_Destruct
