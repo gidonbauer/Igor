@@ -4,14 +4,17 @@
 #include <mdspan>
 #include <memory>
 
+#include <Igor/Logging.hpp>
+
 namespace Igor {
 
 template <typename ElementType,
           typename Extents,
           typename LayoutPolicy   = std::layout_right,
           typename AccessorPolicy = std::default_accessor<ElementType>>
-class MdArray : std::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy> {
-  std::unique_ptr<ElementType[]> m_buffer = nullptr;  // NOLINT
+class MdArray : public std::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy> {
+  // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
+  std::unique_ptr<ElementType[]> m_buffer = nullptr;
 
   template <typename... Sizes>
   constexpr MdArray(ElementType* data, Sizes... n)
@@ -24,9 +27,23 @@ class MdArray : std::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy> 
   constexpr MdArray(Sizes... n)
       : MdArray(new ElementType[(n * ...)], n...) {}
 
-  using std::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>::operator[];
-  using std::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>::extent;
-  using std::mdspan<ElementType, Extents, LayoutPolicy, AccessorPolicy>::rank;
+  constexpr MdArray(const MdArray& other) noexcept = delete;
+  constexpr MdArray(MdArray&& other) noexcept      = default;
+
+  constexpr auto operator=(const MdArray& other) noexcept -> MdArray& {
+    if (this != &other) {
+      IGOR_ASSERT(
+          this->size() == other.size(), "Incompatible sizes {} and {}", this->size(), other.size());
+      std::copy(other.get_data(), other.get_data() + other.size(), m_buffer.get());
+    }
+    return *this;
+  }
+  constexpr auto operator=(MdArray&& other) noexcept -> MdArray& = default;
+
+  constexpr ~MdArray() noexcept = default;
+
+  constexpr auto get_data() noexcept -> ElementType* { return m_buffer.get(); }
+  constexpr auto get_data() const noexcept -> const ElementType* { return m_buffer.get(); }
 };
 
 }  // namespace Igor
