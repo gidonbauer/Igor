@@ -24,7 +24,9 @@ add_library(Igor INTERFACE
                 ./Igor/ProgressBar.hpp
                 ./Igor/StaticVector.hpp
                 ./Igor/Timer.hpp
-                ./Igor/TypeName.hpp)
+                ./Igor/TypeName.hpp
+                ./Igor/MdArray.hpp
+                ./Igor/MdspanToNpy.hpp)
 target_include_directories(Igor INTERFACE .)
 
 option(IGOR_BUILD_TESTS OFF)
