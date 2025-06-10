@@ -28,31 +28,28 @@
 
 namespace Igor {
 
+template <typename ProgressType = std::size_t>
 class ProgressBar {
-  std::size_t m_max_progress;
   std::size_t m_length;
-  std::size_t m_progress = 0UZ;
+  ProgressType m_max_progress;
+  ProgressType m_progress = 0;
 
-  enum : char {
-    DONE_CHAR     = '#',
-    NOT_DONE_CHAR = '.',
-  };
+  enum : char { DONE_CHAR = '#', NOT_DONE_CHAR = '.' };
 
  public:
-  constexpr ProgressBar(std::size_t max_progress, std::size_t length) noexcept
-      : m_max_progress(max_progress),
-        m_length(length - 5UZ) {
-    assert(length < std::numeric_limits<int>::max());
-  }
+  constexpr ProgressBar(ProgressType max_progress, std::size_t length) noexcept
+      : m_length(length - 5UZ),
+        m_max_progress(max_progress) {}
 
-  constexpr void update() noexcept {
-    m_progress = std::min(m_progress + 1, m_max_progress);
+  constexpr void update(ProgressType delta = 1) noexcept {
+    m_progress = std::min(m_progress + delta, m_max_progress);
     show();
   }
 
   void show() const noexcept {
-    const auto done_length = (m_length * m_progress) / m_max_progress;
-    const auto done_prct   = (100UZ * m_progress) / m_max_progress;
+    const auto done_length = static_cast<std::size_t>(
+        (static_cast<ProgressType>(m_length) * m_progress) / m_max_progress);
+    const auto done_prct = static_cast<std::size_t>((100 * m_progress) / m_max_progress);
     std::cout << "\r[";
     std::cout << std::string(done_length, DONE_CHAR);
     std::cout << std::string(m_length - done_length, NOT_DONE_CHAR);
