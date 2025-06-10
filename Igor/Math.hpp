@@ -7,8 +7,9 @@
 
 namespace Igor {
 
+// -------------------------------------------------------------------------------------------------
 template <std::floating_point T>
-constexpr auto constexpr_sqrt(T x) noexcept -> T {
+[[nodiscard]] constexpr auto constexpr_sqrt(T x) noexcept -> T {
   if consteval {
     constexpr auto sqrt_newton_raphson = [](const auto& local_sqrt_newton_raphson,
                                             const T& local_x,
@@ -28,6 +29,9 @@ constexpr auto constexpr_sqrt(T x) noexcept -> T {
     return std::sqrt(x);
   }
 }
+
+// -------------------------------------------------------------------------------------------------
+[[nodiscard]] constexpr auto sqr(auto x) noexcept { return x * x; }
 
 }  // namespace Igor
 
