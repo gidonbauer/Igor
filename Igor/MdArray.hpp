@@ -25,19 +25,11 @@ class MdArray : public std::mdspan<ElementType, Extents, LayoutPolicy, AccessorP
   template <typename... Sizes>
   requires(std::is_convertible_v<std::remove_cvref_t<Sizes>, typename Extents::size_type> && ...)
   constexpr MdArray(Sizes... n)
-      : MdArray(new ElementType[(n * ...)], n...) {}
+      : MdArray(new ElementType[static_cast<size_t>((n * ...))], n...) {}
 
-  constexpr MdArray(const MdArray& other) noexcept = delete;
-  constexpr MdArray(MdArray&& other) noexcept      = default;
-
-  constexpr auto operator=(const MdArray& other) noexcept -> MdArray& {
-    if (this != &other) {
-      IGOR_ASSERT(
-          this->size() == other.size(), "Incompatible sizes {} and {}", this->size(), other.size());
-      std::copy(other.get_data(), other.get_data() + other.size(), m_buffer.get());
-    }
-    return *this;
-  }
+  constexpr MdArray(const MdArray& other) noexcept               = delete;
+  constexpr MdArray(MdArray&& other) noexcept                    = default;
+  constexpr auto operator=(const MdArray& other) noexcept        = delete;
   constexpr auto operator=(MdArray&& other) noexcept -> MdArray& = default;
 
   constexpr ~MdArray() noexcept = default;
