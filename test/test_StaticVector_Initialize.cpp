@@ -469,3 +469,30 @@ TEST(StaticVectorInitialize, EmplaceBack) {
     EXPECT_EQ(vec.size(), 4);
   }
 }
+
+// -------------------------------------------------------------------------------------------------
+TEST(StaticVectorInitialize, Constexpr) {
+  {
+    constexpr Igor::StaticVector<double, 16> vec(4);
+    static_assert(decltype(vec)::constructor_and_destructor_are_cheap,
+                  "double is cheap and must be detected as such.");
+
+    static_assert(vec.size() == 4UZ);
+    static_assert(vec[0] == 0.0);
+    static_assert(vec[1] == 0.0);
+    static_assert(vec[2] == 0.0);
+    static_assert(vec[3] == 0.0);
+  }
+
+  {
+    constexpr Igor::StaticVector<double, 16> vec{1.0, 2.0, 3.0, 4.0};
+    static_assert(decltype(vec)::constructor_and_destructor_are_cheap,
+                  "double is cheap and must be detected as such.");
+
+    static_assert(vec.size() == 4UZ);
+    static_assert(vec[0] == 1.0);
+    static_assert(vec[1] == 2.0);
+    static_assert(vec[2] == 3.0);
+    static_assert(vec[3] == 4.0);
+  }
+}

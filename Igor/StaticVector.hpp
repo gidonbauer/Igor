@@ -244,7 +244,7 @@ class ConstReverseIterator {
 // =================================================================================================
 template <typename Element, size_t CAPACITY>
 class StaticVector {
-  detail::UninitializedArray<Element, CAPACITY> m_storage;
+  detail::UninitializedArray<Element, CAPACITY> m_storage{};
   size_t m_size = 0UZ;
 
  public:
