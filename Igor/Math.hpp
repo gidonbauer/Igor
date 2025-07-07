@@ -31,6 +31,16 @@ template <std::floating_point T>
 }
 
 // -------------------------------------------------------------------------------------------------
+template <typename T>
+[[nodiscard]] constexpr auto constexpr_abs(T x) noexcept -> T {
+  if consteval {
+    return x >= T{0} ? x : -x;
+  } else {
+    return std::abs(x);
+  }
+}
+
+// -------------------------------------------------------------------------------------------------
 [[nodiscard]] constexpr auto sqr(auto x) noexcept { return x * x; }
 
 }  // namespace Igor
