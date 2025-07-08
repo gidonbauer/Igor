@@ -369,7 +369,7 @@ class StaticVector {
     return *this;
   }
 
-  // -------------------------------------------------------------------------------------------------
+  // -----------------------------------------------------------------------------------------------
   constexpr ~StaticVector() noexcept = default;
   constexpr ~StaticVector() noexcept
   requires(!std::is_trivially_destructible_v<Element>)
@@ -379,7 +379,7 @@ class StaticVector {
     }
   }
 
-  // -------------------------------------------------------------------------------------------------
+  // -----------------------------------------------------------------------------------------------
   [[nodiscard]] constexpr auto operator[](size_t idx) noexcept -> reference {
     return *(m_storage.data() + idx);
   }
@@ -436,7 +436,7 @@ class StaticVector {
     return const_reverse_iterator{m_storage.data() - 1};
   }
 
-  // ------------------------------------------------------------------------------------------------
+  // -----------------------------------------------------------------------------------------------
   [[nodiscard]] constexpr auto front() noexcept -> reference {
     IGOR_ASSERT(m_size > 0UZ, "Vector must contain at least one element.");
     return operator[](0UZ);
@@ -454,7 +454,7 @@ class StaticVector {
     return operator[](m_size - 1UZ);
   }
 
-  // -------------------------------------------------------------------------------------------------
+  // -----------------------------------------------------------------------------------------------
   constexpr void clear() noexcept {
     if constexpr (!std::is_trivially_destructible_v<Element>) {
       for (size_t i = 0; i < m_size; ++i) {
@@ -464,7 +464,7 @@ class StaticVector {
     m_size = 0UZ;
   }
 
-  // -------------------------------------------------------------------------------------------------
+  // -----------------------------------------------------------------------------------------------
   constexpr void push_back(const Element& e) noexcept {
     IGOR_ASSERT(m_size < CAPACITY, "Size may not exceed capacity {}.", CAPACITY);
     std::construct_at(m_storage.data() + m_size, e);
@@ -476,7 +476,7 @@ class StaticVector {
     m_size += 1;
   }
 
-  // -------------------------------------------------------------------------------------------------
+  // -----------------------------------------------------------------------------------------------
   template <typename... Args>
   constexpr void emplace_back(Args&&... args) noexcept {
     IGOR_ASSERT(m_size < CAPACITY, "Size may not exceed capacity {}.", CAPACITY);
@@ -484,7 +484,7 @@ class StaticVector {
     m_size += 1;
   }
 
-  // -------------------------------------------------------------------------------------------------
+  // -----------------------------------------------------------------------------------------------
   constexpr auto pop_back() noexcept -> value_type {
     IGOR_ASSERT(m_size > 0, "Vector cannot be empty.");
     m_size -= 1;
@@ -493,14 +493,30 @@ class StaticVector {
     return tmp;
   }
 
-  // -------------------------------------------------------------------------------------------------
+  // -----------------------------------------------------------------------------------------------
+  constexpr void resize(size_type count) noexcept {
+    IGOR_ASSERT(count <= CAPACITY,
+                "Count {} exceeds maximum capacity {} of static vector.",
+                count,
+                CAPACITY);
+    if (count > m_size) {
+      const auto old_size = m_size;
+      m_size              = count;
+      for (auto i = old_size; i < m_size; ++i) {
+        (*this)[i] = Element{};
+      }
+    } else {
+      m_size = count;
+    }
+  }
+
+  // -----------------------------------------------------------------------------------------------
   // TODO:
   // - insert
   // - insert_range
   // - emplace
   // - erase
   // - append_range
-  // - resize
   // - swap
 };
 
