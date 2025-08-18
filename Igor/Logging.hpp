@@ -85,9 +85,8 @@ using fmt::format_string;
   return full_path.substr(full_path.size() - counter, counter);
 }
 
-[[nodiscard]] constexpr auto
-error_loc(const std::source_location loc = std::source_location::current()) noexcept
-    -> std::string {
+[[nodiscard]] constexpr auto error_loc(
+    const std::source_location loc = std::source_location::current()) noexcept -> std::string {
   try {
     return detail::format("`{}` (\033[95m{}:{}:{}\033[0m)",
                           loc.function_name(),
@@ -124,6 +123,7 @@ consteval auto level_stream(Level level) noexcept -> std::ostream& {
     case Level::DEBUG:
     case Level::ASSERT: return std::cerr;
   }
+  std::unreachable();
 }
 
 consteval auto level_repr(Level level) noexcept {
@@ -136,6 +136,7 @@ consteval auto level_repr(Level level) noexcept {
     case Level::TIME:   return "\033[94m[TIME]\033[0m ";
     case Level::ASSERT: return "\033[31m[ASSERT]\033[0m ";
   }
+  std::unreachable();
 }
 
 template <Level level, ExitCode exit_code, typename... Args>
