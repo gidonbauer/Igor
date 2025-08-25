@@ -30,6 +30,9 @@
 #include <fmt/ranges.h>
 #endif  // IGOR_USE_FMT
 
+#ifdef IGOR_USE_CASSERT
+#include <cassert>
+#endif  // IGOR_USE_CASSERT
 #include <cstdint>
 #include <functional>
 #include <iostream>
@@ -258,7 +261,11 @@ class [[maybe_unused]] Assert final
 template <typename... Args>
 Assert(detail::format_string<Args...>, Args&&...) -> Assert<Args...>;
 
-#ifndef IGOR_NDEBUG
+#if defined(IGOR_NDEBUG)
+#define IGOR_ASSERT(cond, ...) ((void)0)
+#elif defined(IGOR_USE_CASSERT)
+#define IGOR_ASSERT(cond, ...) assert(cond)
+#else
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define IGOR_ASSERT(cond, ...)                                                                     \
   do {                                                                                             \
@@ -274,8 +281,6 @@ Assert(detail::format_string<Args...>, Args&&...) -> Assert<Args...>;
       Igor::Assert("Assertion `{}` failed: {}", #cond, Igor::detail::format(__VA_ARGS__));         \
     }                                                                                              \
   } while (false)
-#else
-#define IGOR_ASSERT(cond, ...) ((void)0)
 #endif  // IGOR_NDEBUG
 
 // -------------------------------------------------------------------------------------------------
