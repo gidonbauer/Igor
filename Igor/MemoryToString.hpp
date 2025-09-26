@@ -25,22 +25,43 @@
 #include <cstdint>
 #include <string>
 
+#include "./Logging.hpp"
+
 namespace Igor {
 
-[[nodiscard]] auto memory_to_string(uint64_t mem_in_bytes) noexcept -> std::string {
+[[nodiscard]] auto memory_to_string(uint64_t mem_in_bytes, int num_decimals = -1) noexcept
+    -> std::string {
   using namespace std::string_literals;
   constexpr uint64_t step_factor = 1024;
 
-  if (mem_in_bytes < step_factor) {
-    return std::to_string(mem_in_bytes) + " B"s;
+  if (num_decimals <= 0) {
+    if (mem_in_bytes < step_factor) { return std::to_string(mem_in_bytes) + " B"s; }
+    if (mem_in_bytes < step_factor * step_factor) {
+      return std::to_string(mem_in_bytes / step_factor) + " kB"s;
+    }
+    if (mem_in_bytes < step_factor * step_factor * step_factor) {
+      return std::to_string(mem_in_bytes / (step_factor * step_factor)) + " MB"s;
+    }
+    return std::to_string(mem_in_bytes / (step_factor * step_factor * step_factor)) + " GB"s;
+  } else {
+    if (mem_in_bytes < step_factor) { return std::to_string(mem_in_bytes) + " B"s; }
+
+    const auto fmt_str = Igor::detail::format("{{:.{}f}} {{}}", num_decimals);
+    double mem         = -1.0;
+    const char* unit   = nullptr;
+    if (mem_in_bytes < step_factor * step_factor) {
+      mem  = static_cast<double>(mem_in_bytes) / static_cast<double>(step_factor);
+      unit = "kB";
+    } else if (mem_in_bytes < step_factor * step_factor * step_factor) {
+      mem  = static_cast<double>(mem_in_bytes) / static_cast<double>(step_factor * step_factor);
+      unit = "MB";
+    } else {
+      mem = static_cast<double>(mem_in_bytes) /
+            static_cast<double>(step_factor * step_factor * step_factor);
+      unit = "GB";
+    }
+    return std::vformat(fmt_str, std::make_format_args(mem, unit));
   }
-  if (mem_in_bytes < step_factor * step_factor) {
-    return std::to_string(mem_in_bytes / step_factor) + " kB"s;
-  }
-  if (mem_in_bytes < step_factor * step_factor * step_factor) {
-    return std::to_string(mem_in_bytes / (step_factor * step_factor)) + " MB"s;
-  }
-  return std::to_string(mem_in_bytes / (step_factor * step_factor * step_factor)) + " GB"s;
 }
 
 }  // namespace Igor
