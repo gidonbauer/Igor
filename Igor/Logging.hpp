@@ -58,7 +58,7 @@ enum class ExitCode : int {  // NOLINT(performance-enum-size)
   for (const auto& f : on_death) {
     f();
   }
-  if (exit_code == std::to_underlying(ExitCode::ASSERT)) { std::abort(); }
+  if (exit_code == static_cast<int>(ExitCode::ASSERT)) { std::abort(); }
   std::exit(exit_code);
 }
 
