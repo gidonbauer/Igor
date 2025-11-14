@@ -20,7 +20,7 @@ foreach(exec ${executables})
     add_executable(${exec} ${exec}.cpp)
 
     # - Link libraries ---------
-    target_link_libraries(${exec} PRIVATE GTest::gtest_main)
+    target_link_libraries(${exec} PRIVATE GTest::gtest_main GTest::gtest)
     target_link_libraries(${exec} PRIVATE Igor)
 
     gtest_discover_tests(${exec})

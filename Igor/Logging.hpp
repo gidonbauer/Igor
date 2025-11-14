@@ -88,8 +88,9 @@ using fmt::format_string;
   return full_path.substr(full_path.size() - counter, counter);
 }
 
-[[nodiscard]] constexpr auto error_loc(
-    const std::source_location loc = std::source_location::current()) noexcept -> std::string {
+[[nodiscard]] constexpr auto
+error_loc(const std::source_location loc = std::source_location::current()) noexcept
+    -> std::string {
   try {
     return detail::format("`{}` (\033[95m{}:{}:{}\033[0m)",
                           loc.function_name(),
@@ -109,6 +110,7 @@ using fmt::format_string;
 enum class Level : std::uint8_t {
   INFO,
   WARN,
+  ERROR,
   TODO,
   PANIC,
   DEBUG,
@@ -121,6 +123,7 @@ consteval auto level_stream(Level level) noexcept -> std::ostream& {
     case Level::INFO:
     case Level::TIME:   return std::cout;
     case Level::WARN:
+    case Level::ERROR:
     case Level::TODO:
     case Level::PANIC:
     case Level::DEBUG:
@@ -133,6 +136,7 @@ consteval auto level_repr(Level level) noexcept {
   switch (level) {
     case Level::INFO:   return "\033[32m[INFO]\033[0m ";
     case Level::WARN:   return "\033[33m[WARN]\033[0m ";
+    case Level::ERROR:  return "\033[31m[ERROR]\033[0m ";
     case Level::TODO:   return "\033[35m[TODO]\033[0m ";
     case Level::PANIC:  return "\033[31m[ERROR]\033[0m ";
     case Level::DEBUG:  return "\033[94m[DEBUG]\033[0m ";
@@ -203,6 +207,21 @@ class [[maybe_unused]] Warn final
 };
 template <typename... Args>
 Warn(detail::format_string<Args...>, Args&&...) -> Warn<Args...>;
+
+// -------------------------------------------------------------------------------------------------
+template <typename... Args>
+class [[maybe_unused]] Error final
+    : detail::Print<detail::Level::ERROR, ExitCode::NO_EARLY_EXIT, Args...> {
+  using P = detail::Print<detail::Level::ERROR, ExitCode::NO_EARLY_EXIT, Args...>;
+
+ public:
+  constexpr Error(detail::format_string<Args...> fmt,
+                  Args&&... args,
+                  const std::source_location loc = std::source_location::current()) noexcept
+      : P{loc, fmt, std::forward<Args>(args)...} {}
+};
+template <typename... Args>
+Error(detail::format_string<Args...>, Args&&...) -> Error<Args...>;
 
 // -------------------------------------------------------------------------------------------------
 template <typename... Args>

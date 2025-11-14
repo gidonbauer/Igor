@@ -35,8 +35,10 @@ if(IGOR_BUILD_TESTS)
 
   set(CMAKE_BUILD_TYPE "Debug")
   add_compile_options(-Wall -Wextra -pedantic -Wconversion -Wshadow)
-  add_compile_options(-fsanitize=address,undefined,leak -O0)
-  add_link_options(-fsanitize=address,undefined,leak)
+  # add_compile_options(-fsanitize=address,undefined,leak -O0)
+  # add_link_options(-fsanitize=address,undefined,leak)
+  add_compile_options(-fsanitize=address,undefined -O0)
+  add_link_options(-fsanitize=address,undefined)
 
   include(FetchContent)
   enable_testing()

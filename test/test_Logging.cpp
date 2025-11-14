@@ -34,6 +34,20 @@ TEST(TestLogging, Warn) {
       << "Expected ouput to end with `" << expected_end << "` but output is `" << output << "`";
 }
 
+TEST(TestLogging, Error) {
+  testing::internal::CaptureStderr();
+  Igor::Error("Hello {} world!", 42);
+  std::string output = testing::internal::GetCapturedStderr();
+
+  std::string expected_start = "\033[31m[ERROR]\033[0m ";
+  std::string expected_end   = "(\033[95mtest_Logging.cpp:39:3\033[0m): Hello 42 world!\n";
+
+  EXPECT_TRUE(output.starts_with(expected_start))
+      << "Expected ouput to start with `" << expected_start << "` but output is `" << output << "`";
+  EXPECT_TRUE(output.ends_with(expected_end))
+      << "Expected ouput to end with `" << expected_end << "` but output is `" << output << "`";
+}
+
 TEST(TestLogging, Todo) {
   EXPECT_DEATH(Igor::Todo(), "Not implemented yet.");
   EXPECT_DEATH(Igor::Todo("This function must be implemented! {}", 42),
