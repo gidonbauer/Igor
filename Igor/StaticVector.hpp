@@ -572,7 +572,6 @@ class StaticVector {
   // TODO:
   // - insert_range
   // - emplace
-  // - erase
   // - append_range
   // - swap
 };
