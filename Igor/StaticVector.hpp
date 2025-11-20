@@ -511,8 +511,65 @@ class StaticVector {
   }
 
   // -----------------------------------------------------------------------------------------------
+  constexpr auto insert(const_iterator pos, const Element& value) noexcept -> const_iterator {
+    IGOR_ASSERT(m_size < CAPACITY, "Size may not exceed capacity {}.", CAPACITY);
+    const difference_type idx = std::distance(cbegin(), pos);
+    IGOR_ASSERT(idx >= 0, "Invalid iterator");
+
+    for (size_t i = m_size; i > static_cast<size_t>(idx); --i) {
+      (*this)[i] = std::move((*this)[i - 1]);
+    }
+
+    (*this)[static_cast<size_t>(idx)] = value;
+    m_size += 1;
+    return pos;
+  }
+
+  // -----------------------------------------------------------------------------------------------
+  constexpr auto insert(const_iterator pos, Element&& value) noexcept -> const_iterator {
+    IGOR_ASSERT(m_size < CAPACITY, "Size may not exceed capacity {}.", CAPACITY);
+    const difference_type idx = std::distance(cbegin(), pos);
+    IGOR_ASSERT(idx >= 0, "Invalid iterator");
+
+    for (size_t i = m_size; i > static_cast<size_t>(idx); --i) {
+      (*this)[i] = std::move((*this)[i - 1]);
+    }
+
+    (*this)[static_cast<size_t>(idx)] = std::move(value);
+    m_size += 1;
+    return pos;
+  }
+
+  // -----------------------------------------------------------------------------------------------
+  constexpr auto erase(iterator pos) noexcept -> iterator { return erase(pos, std::next(pos)); }
+  constexpr auto erase(iterator first, iterator last) noexcept -> iterator {
+    std::move(last, end(), first);
+
+    const auto num_elems_removed = std::distance(first, last);
+    IGOR_ASSERT(num_elems_removed >= 0 && m_size >= static_cast<size_t>(num_elems_removed),
+                "Invalid iterator pair");
+    m_size -= static_cast<size_t>(num_elems_removed);
+
+    return first;
+  }
+
+  constexpr auto erase(const_iterator pos) noexcept -> const_iterator {
+    return erase(pos, std::next(pos));
+  }
+  constexpr auto erase(const_iterator first, const_iterator last) noexcept -> const_iterator {
+    iterator non_const_first = std::next(begin(), std::distance(cbegin(), first));
+    std::move(last, cend(), non_const_first);
+
+    const auto num_elems_removed = std::distance(first, last);
+    IGOR_ASSERT(num_elems_removed >= 0 && m_size >= static_cast<size_t>(num_elems_removed),
+                "Invalid iterator pair");
+    m_size -= static_cast<size_t>(num_elems_removed);
+
+    return first;
+  }
+
+  // -----------------------------------------------------------------------------------------------
   // TODO:
-  // - insert
   // - insert_range
   // - emplace
   // - erase

@@ -12,6 +12,8 @@ set(executables
   test_StaticVector_Initialize
   test_StaticVector_Destruct
   test_StaticVector_Iterator
+  test_StaticVector_Insert
+  test_StaticVector_Erase
 )
 
 include(GoogleTest)
