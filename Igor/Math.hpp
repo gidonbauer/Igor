@@ -22,7 +22,7 @@ template <std::floating_point T>
                                                       curr);
     };
 
-    return x >= static_cast<T>(0) && x < std::numeric_limits<T>::infinity()
+    return x >= static_cast<T>(0) && x < std::numeric_limits<T>::max()
                ? sqrt_newton_raphson(sqrt_newton_raphson, x, x, static_cast<T>(0))
                : std::numeric_limits<T>::quiet_NaN();
   } else {
