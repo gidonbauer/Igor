@@ -44,7 +44,7 @@ struct UninitializedArray {
   using Storage_t = std::conditional_t<constructor_and_destructor_are_cheap,
                                        Element[CAPACITY],                       // NOLINT
                                        std::byte[CAPACITY * sizeof(Element)]>;  // NOLINT
-  alignas(Element) Storage_t m_data;
+  alignas(Element) Storage_t m_data{};
 
   [[nodiscard]] constexpr auto data() noexcept -> Element* {
     if constexpr (constructor_and_destructor_are_cheap) {
