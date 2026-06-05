@@ -84,7 +84,8 @@ class ReverseIterator {
   }
 
   constexpr auto operator<=>(const ReverseIterator<Element>& other) const noexcept {
-    return m_ptr <=> other.m_ptr;
+    // Order is inverted
+    return other.m_ptr <=> m_ptr;
   }
 
   constexpr auto operator*() noexcept -> reference {
@@ -178,15 +179,16 @@ class ConstReverseIterator {
   }
 
   constexpr auto operator<=>(const ConstReverseIterator<Element>& other) const noexcept {
-    return m_ptr <=> other.m_ptr;
+    // Order is inverted
+    return other.m_ptr <=> m_ptr;
   }
 
   constexpr auto operator*() const noexcept -> reference {
-    IGOR_ASSERT(m_ptr != nullptr, "ReverseIterator cannot point to nullptr.");
+    IGOR_ASSERT(m_ptr != nullptr, "ConstReverseIterator cannot point to nullptr.");
     return *m_ptr;
   }
   constexpr auto operator->() const noexcept -> pointer {
-    IGOR_ASSERT(m_ptr != nullptr, "ReverseIterator cannot point to nullptr.");
+    IGOR_ASSERT(m_ptr != nullptr, "ConstReverseIterator cannot point to nullptr.");
     return m_ptr;
   }
   constexpr auto operator[](difference_type offset) const noexcept -> reference {
@@ -214,7 +216,7 @@ class ConstReverseIterator {
   }
 
   constexpr auto operator+(difference_type offset) const noexcept -> ConstReverseIterator {
-    return ReverseIterator{m_ptr - offset};
+    return ConstReverseIterator{m_ptr - offset};
   }
   constexpr auto operator+=(difference_type offset) noexcept -> ConstReverseIterator& {
     m_ptr -= offset;
@@ -227,7 +229,7 @@ class ConstReverseIterator {
   }
 
   constexpr auto operator-(difference_type offset) const noexcept -> ConstReverseIterator {
-    return ReverseIterator{m_ptr + offset};
+    return ConstReverseIterator{m_ptr + offset};
   }
   constexpr auto operator-=(difference_type offset) noexcept -> ConstReverseIterator& {
     m_ptr += offset;
@@ -265,20 +267,30 @@ class StaticVector {
 
   constexpr StaticVector() noexcept = default;
   constexpr StaticVector(size_t size, const Element& init = Element{}) noexcept {
+    IGOR_ASSERT(size <= CAPACITY, "Size {} exceeds capacity {}.", size, CAPACITY);
+    m_size = size;
     for (size_t i = 0; i < size; ++i) {
-      push_back(init);
+      std::construct_at(data() + i, init);
     }
   }
   constexpr StaticVector(std::initializer_list<Element> values) noexcept {
-    for (auto& v : values) {
-      push_back(std::move(v));
+    IGOR_ASSERT(values.size() <= CAPACITY, "Size {} exceeds capacity {}.", values.size(), CAPACITY);
+    m_size   = values.size();
+    size_t i = 0;
+    for (auto& value : values) {
+      std::construct_at(data() + i, value);
+      i += 1;
     }
   }
 
   // - Copy constructor ----------------------------------------------------------------------------
-  constexpr StaticVector(const StaticVector& other) noexcept {
-    for (const auto& e : other) {
-      push_back(e);
+  constexpr StaticVector(const StaticVector& other) noexcept = default;
+
+  constexpr StaticVector(const StaticVector& other) noexcept
+  requires(!std::is_trivially_copy_constructible_v<Element>)
+      : m_size(other.size()) {
+    for (size_t i = 0; i < other.size(); ++i) {
+      std::construct_at(data() + i, other[i]);
     }
   }
 
@@ -289,17 +301,23 @@ class StaticVector {
                   "Size of vector must be less than or equal to the capacity {}.",
                   CAPACITY);
     }
+    m_size = other.size();
 
-    for (const auto& e : other) {
-      push_back(Element{e});
+    for (size_t i = 0; i < other.size(); ++i) {
+      std::construct_at(data() + i, Element{other[i]});
     }
   }
 
   // - Move constructor ----------------------------------------------------------------------------
-  constexpr StaticVector(StaticVector&& other) noexcept {
-    for (auto& e : other) {
-      push_back(std::move(e));
+  constexpr StaticVector(StaticVector&& other) noexcept = default;
+
+  constexpr StaticVector(StaticVector&& other) noexcept
+  requires(!std::is_trivially_move_constructible_v<Element>)
+      : m_size(other.size()) {
+    for (size_t i = 0; i < other.size(); ++i) {
+      std::construct_at(data() + i, std::move(other[i]));
     }
+    other.clear();
   }
 
   template <typename OtherElement, size_t OTHER_CAPACITY>
@@ -309,18 +327,26 @@ class StaticVector {
                   "Size of vector must be less than or equal to the capacity {}.",
                   CAPACITY);
     }
+    m_size = other.size();
 
-    for (auto& e : other) {
-      push_back(Element{std::move(e)});
+    for (size_t i = 0; i < other.size(); ++i) {
+      std::construct_at(data() + i, Element{std::move(other[i])});
     }
+    other.clear();
   }
 
   // - Copy assignment -----------------------------------------------------------------------------
-  constexpr auto operator=(const StaticVector& other) noexcept -> StaticVector& {
+  constexpr auto operator=(const StaticVector& other) noexcept -> StaticVector& = default;
+
+  constexpr auto operator=(const StaticVector& other) noexcept -> StaticVector&
+  requires(!(std::is_trivially_copy_constructible_v<Element> &&
+             std::is_trivially_destructible_v<Element>))
+  {
     if (this != &other) {
       clear();
-      for (const auto& e : other) {
-        push_back(e);
+      m_size = other.size();
+      for (size_t i = 0; i < other.size(); ++i) {
+        std::construct_at(data() + i, other[i]);
       }
     }
     return *this;
@@ -336,19 +362,27 @@ class StaticVector {
     }
 
     clear();
-    for (const auto& e : other) {
-      push_back(Element{e});
+    m_size = other.size();
+    for (size_t i = 0; i < other.size(); ++i) {
+      std::construct_at(data() + i, Element{other[i]});
     }
     return *this;
   }
 
   // - Move assignment -----------------------------------------------------------------------------
-  constexpr auto operator=(StaticVector&& other) noexcept -> StaticVector& {
+  constexpr auto operator=(StaticVector&& other) noexcept -> StaticVector& = default;
+
+  constexpr auto operator=(StaticVector&& other) noexcept -> StaticVector&
+  requires(!(std::is_trivially_move_constructible_v<Element> &&
+             std::is_trivially_destructible_v<Element>))
+  {
     if (this != &other) {
       clear();
-      for (auto& e : other) {
-        push_back(std::move(e));
+      m_size = other.size();
+      for (size_t i = 0; i < other.size(); ++i) {
+        std::construct_at(data() + i, std::move(other[i]));
       }
+      other.clear();
     }
     return *this;
   }
@@ -363,9 +397,11 @@ class StaticVector {
     }
 
     clear();
-    for (auto& e : other) {
-      push_back(std::move(e));
+    m_size = other.size();
+    for (size_t i = 0; i < other.size(); ++i) {
+      std::construct_at(data() + i, Element{std::move(other[i])});
     }
+    other.clear();
     return *this;
   }
 
@@ -502,53 +538,80 @@ class StaticVector {
     if (count > m_size) {
       const auto old_size = m_size;
       m_size              = count;
+      // The slots beyond old_size are uninitialized, so they must be constructed.
       for (auto i = old_size; i < m_size; ++i) {
-        (*this)[i] = Element{};
+        std::construct_at(m_storage.data() + i);
       }
     } else {
+      // The removed elements must be destroyed before shrinking.
+      if constexpr (!std::is_trivially_destructible_v<Element>) {
+        for (auto i = count; i < m_size; ++i) {
+          std::destroy_at(m_storage.data() + i);
+        }
+      }
       m_size = count;
     }
   }
 
   // -----------------------------------------------------------------------------------------------
-  constexpr auto insert(const_iterator pos, const Element& value) noexcept -> const_iterator {
+  constexpr auto insert(const_iterator pos, const Element& value) noexcept -> iterator {
     IGOR_ASSERT(m_size < CAPACITY, "Size may not exceed capacity {}.", CAPACITY);
-    const difference_type idx = std::distance(cbegin(), pos);
-    IGOR_ASSERT(idx >= 0, "Invalid iterator");
+    const difference_type signed_idx = std::distance(cbegin(), pos);
+    IGOR_ASSERT(signed_idx >= 0, "Invalid iterator");
+    const auto idx = static_cast<size_t>(signed_idx);
 
-    for (size_t i = m_size; i > static_cast<size_t>(idx); --i) {
-      (*this)[i] = std::move((*this)[i - 1]);
+    if (idx == m_size) {
+      std::construct_at(m_storage.data() + m_size, value);
+    } else {
+      // The slot at m_size is uninitialized, so it must be constructed, not assigned to.
+      std::construct_at(m_storage.data() + m_size, std::move((*this)[m_size - 1]));
+      for (size_t i = m_size - 1; i > idx; --i) {
+        (*this)[i] = std::move((*this)[i - 1]);
+      }
+      (*this)[idx] = value;
     }
-
-    (*this)[static_cast<size_t>(idx)] = value;
     m_size += 1;
-    return pos;
+    return std::next(begin(), signed_idx);
   }
 
   // -----------------------------------------------------------------------------------------------
-  constexpr auto insert(const_iterator pos, Element&& value) noexcept -> const_iterator {
+  constexpr auto insert(const_iterator pos, Element&& value) noexcept -> iterator {
     IGOR_ASSERT(m_size < CAPACITY, "Size may not exceed capacity {}.", CAPACITY);
-    const difference_type idx = std::distance(cbegin(), pos);
-    IGOR_ASSERT(idx >= 0, "Invalid iterator");
+    const difference_type signed_idx = std::distance(cbegin(), pos);
+    IGOR_ASSERT(signed_idx >= 0, "Invalid iterator");
+    const auto idx = static_cast<size_t>(signed_idx);
 
-    for (size_t i = m_size; i > static_cast<size_t>(idx); --i) {
-      (*this)[i] = std::move((*this)[i - 1]);
+    if (idx == m_size) {
+      std::construct_at(m_storage.data() + m_size, std::move(value));
+    } else {
+      // The slot at m_size is uninitialized, so it must be constructed, not assigned to.
+      std::construct_at(m_storage.data() + m_size, std::move((*this)[m_size - 1]));
+      for (size_t i = m_size - 1; i > idx; --i) {
+        (*this)[i] = std::move((*this)[i - 1]);
+      }
+      (*this)[idx] = std::move(value);
     }
-
-    (*this)[static_cast<size_t>(idx)] = std::move(value);
     m_size += 1;
-    return pos;
+    return std::next(begin(), signed_idx);
   }
 
   // -----------------------------------------------------------------------------------------------
   constexpr auto erase(iterator pos) noexcept -> iterator { return erase(pos, std::next(pos)); }
   constexpr auto erase(iterator first, iterator last) noexcept -> iterator {
-    std::move(last, end(), first);
-
     const auto num_elems_removed = std::distance(first, last);
     IGOR_ASSERT(num_elems_removed >= 0 && m_size >= static_cast<size_t>(num_elems_removed),
                 "Invalid iterator pair");
+
+    std::move(last, end(), first);
+
+    // Destroy the moved-from elements that now sit beyond the new size.
+    const auto old_size = m_size;
     m_size -= static_cast<size_t>(num_elems_removed);
+    if constexpr (!std::is_trivially_destructible_v<Element>) {
+      for (auto i = m_size; i < old_size; ++i) {
+        std::destroy_at(m_storage.data() + i);
+      }
+    }
 
     return first;
   }
@@ -557,13 +620,21 @@ class StaticVector {
     return erase(pos, std::next(pos));
   }
   constexpr auto erase(const_iterator first, const_iterator last) noexcept -> const_iterator {
-    iterator non_const_first = std::next(begin(), std::distance(cbegin(), first));
-    std::move(last, cend(), non_const_first);
-
     const auto num_elems_removed = std::distance(first, last);
     IGOR_ASSERT(num_elems_removed >= 0 && m_size >= static_cast<size_t>(num_elems_removed),
                 "Invalid iterator pair");
+
+    iterator non_const_first = std::next(begin(), std::distance(cbegin(), first));
+    std::move(last, cend(), non_const_first);
+
+    // Destroy the moved-from elements that now sit beyond the new size.
+    const auto old_size = m_size;
     m_size -= static_cast<size_t>(num_elems_removed);
+    if constexpr (!std::is_trivially_destructible_v<Element>) {
+      for (auto i = m_size; i < old_size; ++i) {
+        std::destroy_at(m_storage.data() + i);
+      }
+    }
 
     return first;
   }

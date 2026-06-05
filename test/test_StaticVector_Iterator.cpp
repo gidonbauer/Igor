@@ -1,8 +1,10 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <array>
 #include <iterator>
 #include <string>
+#include <vector>
 
 using namespace std::string_literals;
 
@@ -54,6 +56,12 @@ TEST(StaticVectorIterator, ForwardIterator) {
 }
 
 TEST(StaticVectorIterator, ReverseIterator) {
+  {
+    Igor::StaticVector<int, 16UZ> vec{3, 4, 5, 1, 2, 3, 9, 8, 5, 1001};
+    EXPECT_TRUE(vec.rbegin() < vec.rend());
+    EXPECT_TRUE(vec.crbegin() < vec.crend());
+  }
+
   {
     Igor::StaticVector<int, 16UZ> vec{3, 4, 5, 1, 2, 3, 9, 8, 5, 1001};
     EXPECT_FALSE(std::is_sorted(std::crbegin(vec), std::crend(vec)));
@@ -110,23 +118,23 @@ TEST(StaticVectorIterator, ModifyReverseIterator) {
 }
 
 TEST(StaticVectorIterator, Distance) {
-  Igor::StaticVector<std::string, 32> vec(32);
+  Igor::StaticVector<std::string, 32> sv(32);
 
-  EXPECT_EQ(std::distance(vec.begin(), vec.end()), 32);
-  EXPECT_EQ(std::distance(vec.cbegin(), vec.cend()), 32);
+  EXPECT_EQ(std::distance(sv.begin(), sv.end()), 32);
+  EXPECT_EQ(std::distance(sv.cbegin(), sv.cend()), 32);
 
-  EXPECT_EQ(std::distance(vec.end(), vec.begin()), -32);
-  EXPECT_EQ(std::distance(vec.cend(), vec.cbegin()), -32);
+  EXPECT_EQ(std::distance(sv.end(), sv.begin()), -32);
+  EXPECT_EQ(std::distance(sv.cend(), sv.cbegin()), -32);
 
-  EXPECT_EQ(std::distance(vec.rbegin(), vec.rend()), 32);
-  EXPECT_EQ(std::distance(vec.crbegin(), vec.crend()), 32);
+  EXPECT_EQ(std::distance(sv.rbegin(), sv.rend()), 32);
+  EXPECT_EQ(std::distance(sv.crbegin(), sv.crend()), 32);
 
-  EXPECT_EQ(std::distance(vec.rend(), vec.rbegin()), -32);
-  EXPECT_EQ(std::distance(vec.crend(), vec.crbegin()), -32);
+  EXPECT_EQ(std::distance(sv.rend(), sv.rbegin()), -32);
+  EXPECT_EQ(std::distance(sv.crend(), sv.crbegin()), -32);
 
-  EXPECT_EQ(vec.rend() - vec.rbegin(), 32);
-  EXPECT_EQ(vec.crend() - vec.crbegin(), 32);
+  EXPECT_EQ(sv.rend() - sv.rbegin(), 32);
+  EXPECT_EQ(sv.crend() - sv.crbegin(), 32);
 
-  EXPECT_EQ(vec.rbegin() - vec.rend(), -32);
-  EXPECT_EQ(vec.crbegin() - vec.crend(), -32);
+  EXPECT_EQ(sv.rbegin() - sv.rend(), -32);
+  EXPECT_EQ(sv.crbegin() - sv.crend(), -32);
 }

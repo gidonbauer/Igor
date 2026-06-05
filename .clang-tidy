@@ -10,6 +10,7 @@ Checks:
   -cppcoreguidelines-avoid-magic-numbers,
   -cppcoreguidelines-non-private-member-variables-in-classes,
   -cppcoreguidelines-init-variables,
+  -cppcoreguidelines-avoid-do-while,
   -openmp-use-default-none,
   -readability-identifier-length,
   -readability-uppercase-literal-suffix,

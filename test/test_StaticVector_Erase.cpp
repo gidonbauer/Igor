@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <memory>
 #include <string>
 
 #include <Igor/StaticVector.hpp>
@@ -122,4 +123,36 @@ TEST(StaticVectorErase, EraseString) {
     vec.erase(vec.cbegin(), vec.cend());
     ASSERT_EQ(vec.size(), 0);
   }
+}
+
+TEST(StaticVectorErase, EraseDestroysRemoved) {
+  const auto p0 = std::make_shared<int>(0);
+  const auto p1 = std::make_shared<int>(1);
+  const auto p2 = std::make_shared<int>(2);
+  const auto p3 = std::make_shared<int>(3);
+
+  Igor::StaticVector<std::shared_ptr<int>, 8> vec{p0, p1, p2, p3};
+  EXPECT_EQ(p0.use_count(), 2);
+  EXPECT_EQ(p1.use_count(), 2);
+  EXPECT_EQ(p2.use_count(), 2);
+  EXPECT_EQ(p3.use_count(), 2);
+
+  // Erase a single element: the vacated tail slot must be destroyed.
+  vec.erase(std::next(vec.begin(), 1));
+  ASSERT_EQ(vec.size(), 3);
+  EXPECT_EQ(p0.use_count(), 2);
+  EXPECT_EQ(p1.use_count(), 1);  // removed
+  EXPECT_EQ(p2.use_count(), 2);
+  EXPECT_EQ(p3.use_count(), 2);
+  EXPECT_EQ(*vec[0], 0);
+  EXPECT_EQ(*vec[1], 2);
+  EXPECT_EQ(*vec[2], 3);
+
+  // Erase a range: both vacated tail slots must be destroyed.
+  vec.erase(vec.begin(), std::next(vec.begin(), 2));
+  ASSERT_EQ(vec.size(), 1);
+  EXPECT_EQ(p0.use_count(), 1);  // removed
+  EXPECT_EQ(p2.use_count(), 1);  // removed
+  EXPECT_EQ(p3.use_count(), 2);
+  EXPECT_EQ(*vec[0], 3);
 }

@@ -29,7 +29,10 @@ add_library(Igor INTERFACE
                 ./Igor/MdspanToNpy.hpp)
 target_include_directories(Igor INTERFACE .)
 
+include(FetchContent)
 option(IGOR_BUILD_TESTS OFF)
+option(IGOR_BUILD_BENCHMARKS OFF)
+
 if(IGOR_BUILD_TESTS)
   set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -40,7 +43,6 @@ if(IGOR_BUILD_TESTS)
   add_compile_options(-fsanitize=address,undefined -O0)
   add_link_options(-fsanitize=address,undefined)
 
-  include(FetchContent)
   enable_testing()
 
   set(BUILD_GMOCK OFF)
@@ -56,4 +58,25 @@ if(IGOR_BUILD_TESTS)
   message(STATUS "Build tests")
   
   add_subdirectory(${CMAKE_SOURCE_DIR}/test/)
+endif()
+
+if(IGOR_BUILD_BENCHMARKS)
+  set(CMAKE_BUILD_TYPE "Release")
+  add_compile_options(-Wall -Wextra -pedantic -Wconversion -Wshadow)
+  # add_compile_options(-fsanitize=address,undefined,leak -O0)
+  # add_link_options(-fsanitize=address,undefined,leak)
+  add_compile_options(-O3 -march=native)
+
+  set(BENCHMARK_ENABLE_TESTING OFF)
+  set(BENCHMARK_ENABLE_INSTALL OFF)
+  FetchContent_Declare(
+      benchmark
+      GIT_REPOSITORY https://github.com/google/benchmark.git
+      GIT_TAG        main
+  )
+  FetchContent_MakeAvailable(benchmark)
+
+  message(STATUS "Build benchmarks")
+  
+  add_subdirectory(${CMAKE_SOURCE_DIR}/bench/)
 endif()

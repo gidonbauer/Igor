@@ -471,6 +471,123 @@ TEST(StaticVectorInitialize, EmplaceBack) {
 }
 
 // -------------------------------------------------------------------------------------------------
+TEST(StaticVectorInitialize, MoveEmptiesSource) {
+  const auto p1 = std::make_shared<int>(1);
+  const auto p2 = std::make_shared<int>(2);
+  const auto p3 = std::make_shared<int>(3);
+
+  // Move constructor empties the source.
+  {
+    Igor::StaticVector<std::shared_ptr<int>, 8UZ> v1{p1, p2, p3};
+    ASSERT_EQ(v1.size(), 3UZ);
+    EXPECT_EQ(p1.use_count(), 2);
+
+    const Igor::StaticVector<std::shared_ptr<int>, 8UZ> v2 = std::move(v1);
+    EXPECT_EQ(v1.size(), 0UZ);  // NOLINT(bugprone-use-after-move)
+    EXPECT_TRUE(v1.empty());
+    EXPECT_EQ(v2.size(), 3UZ);
+    EXPECT_EQ(p1.use_count(), 2);  // reference held only by v2 now
+  }
+
+  // Move assignment empties the source.
+  {
+    Igor::StaticVector<std::shared_ptr<int>, 8UZ> v1{p1, p2, p3};
+    Igor::StaticVector<std::shared_ptr<int>, 8UZ> v2;
+    v2 = std::move(v1);
+    EXPECT_EQ(v1.size(), 0UZ);  // NOLINT(bugprone-use-after-move)
+    EXPECT_TRUE(v1.empty());
+    EXPECT_EQ(v2.size(), 3UZ);
+    // The reference is held by v2 and the original p1/p2/p3 only.
+    EXPECT_EQ(p1.use_count(), 2);
+    EXPECT_EQ(p2.use_count(), 2);
+    EXPECT_EQ(p3.use_count(), 2);
+  }
+
+  // Cross-capacity move constructor empties the source.
+  {
+    Igor::StaticVector<std::shared_ptr<int>, 8UZ> v1{p1, p2, p3};
+    const Igor::StaticVector<std::shared_ptr<int>, 16UZ> v2 = std::move(v1);
+    EXPECT_EQ(v1.size(), 0UZ);  // NOLINT(bugprone-use-after-move)
+    EXPECT_EQ(v2.size(), 3UZ);
+    EXPECT_EQ(p1.use_count(), 2);
+    EXPECT_EQ(p2.use_count(), 2);
+    EXPECT_EQ(p3.use_count(), 2);
+  }
+
+  // Cross-capacity move assignment empties the source.
+  {
+    Igor::StaticVector<std::shared_ptr<int>, 8UZ> v1{p1, p2, p3};
+    Igor::StaticVector<std::shared_ptr<int>, 16UZ> v2;
+    v2 = std::move(v1);
+    EXPECT_EQ(v1.size(), 0UZ);  // NOLINT(bugprone-use-after-move)
+    EXPECT_EQ(v2.size(), 3UZ);
+    EXPECT_EQ(p1.use_count(), 2);
+    EXPECT_EQ(p2.use_count(), 2);
+    EXPECT_EQ(p3.use_count(), 2);
+  }
+
+  // All temporaries destroyed: only the originals remain.
+  EXPECT_EQ(p1.use_count(), 1);
+  EXPECT_EQ(p2.use_count(), 1);
+  EXPECT_EQ(p3.use_count(), 1);
+}
+
+// -------------------------------------------------------------------------------------------------
+TEST(StaticVectorInitialize, ResizeGrow) {
+  {
+    Igor::StaticVector<int, 16UZ> vec{1, 2, 3};
+    vec.resize(6UZ);
+    ASSERT_EQ(vec.size(), 6UZ);
+    EXPECT_EQ(vec[0], 1);
+    EXPECT_EQ(vec[1], 2);
+    EXPECT_EQ(vec[2], 3);
+    EXPECT_EQ(vec[3], int{});
+    EXPECT_EQ(vec[4], int{});
+    EXPECT_EQ(vec[5], int{});
+  }
+
+  {
+    // Grow a vector of a non-trivial, heap-owning type: the new slots must be constructed,
+    // not assigned into uninitialized storage.
+    Igor::StaticVector<std::string, 16UZ> vec{
+        "A very long string that should not fit into the small string optimization."};
+    vec.resize(4UZ);
+    ASSERT_EQ(vec.size(), 4UZ);
+    EXPECT_EQ(vec[0],
+              std::string{"A very long string that should not fit into the small string "
+                          "optimization."});
+    EXPECT_EQ(vec[1], std::string{});
+    EXPECT_EQ(vec[2], std::string{});
+    EXPECT_EQ(vec[3], std::string{});
+  }
+}
+
+// -------------------------------------------------------------------------------------------------
+TEST(StaticVectorInitialize, ResizeShrink) {
+  const auto p1 = std::make_shared<int>(1);
+  const auto p2 = std::make_shared<int>(2);
+  const auto p3 = std::make_shared<int>(3);
+  const auto p4 = std::make_shared<int>(4);
+
+  Igor::StaticVector<std::shared_ptr<int>, 8UZ> vec{p1, p2, p3, p4};
+  EXPECT_EQ(p1.use_count(), 2);
+  EXPECT_EQ(p2.use_count(), 2);
+  EXPECT_EQ(p3.use_count(), 2);
+  EXPECT_EQ(p4.use_count(), 2);
+
+  // Shrinking must destroy the removed elements, releasing their references.
+  vec.resize(2UZ);
+  ASSERT_EQ(vec.size(), 2UZ);
+  EXPECT_EQ(p1.use_count(), 2);
+  EXPECT_EQ(p2.use_count(), 2);
+  EXPECT_EQ(p3.use_count(), 1);
+  EXPECT_EQ(p4.use_count(), 1);
+
+  EXPECT_EQ(*vec[0], 1);
+  EXPECT_EQ(*vec[1], 2);
+}
+
+// -------------------------------------------------------------------------------------------------
 TEST(StaticVectorInitialize, Constexpr) {
   {
     constexpr Igor::StaticVector<double, 16> vec(4);
