@@ -24,6 +24,8 @@
 
 #include <utility>
 
+#include "Macros.hpp"
+
 namespace Igor {
 
 template <typename ON_EXIT>
@@ -40,6 +42,10 @@ class Defer {
   auto operator=(const Defer&) = delete;
   auto operator=(Defer&&)      = delete;
 };
+
+// NOLINTNEXTLINE
+#define IGOR_DEFER(...)                                                                            \
+  Igor::Defer IGOR_COMBINE(IGOR__DEFER__NAME__, __LINE__)([&]() { __VA_ARGS__ })
 
 }  // namespace Igor
 
