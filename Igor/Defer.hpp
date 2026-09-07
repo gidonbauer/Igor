@@ -45,7 +45,7 @@ class Defer {
 
 // NOLINTNEXTLINE
 #define IGOR_DEFER(...)                                                                            \
-  Igor::Defer IGOR_COMBINE(IGOR__DEFER__NAME__, __LINE__)([&]() { __VA_ARGS__ })
+  Igor::Defer IGOR_COMBINE(IGOR__DEFER__NAME__, __LINE__)([=]() { __VA_ARGS__ })
 
 }  // namespace Igor
 
