@@ -17,6 +17,16 @@ set(executables
   test_StaticVector_Erase
 )
 
+# `Igor` never provides a stacktrace backend, but the tests need one to test the stacktrace.
+# `cpptrace` has to be installed separately, e.g. via `brew install cpptrace`; if it is not found the
+# stacktrace tests skip themselves.
+find_package(cpptrace QUIET)
+if(cpptrace_FOUND)
+  message(STATUS "Found cpptrace, testing the stacktrace with `IGOR_USE_CPPTRACE`")
+else()
+  message(STATUS "Did not find cpptrace, the stacktrace tests are skipped")
+endif()
+
 include(GoogleTest)
 foreach(exec ${executables})
     # - Define executables ------
@@ -25,9 +35,10 @@ foreach(exec ${executables})
     # - Link libraries ---------
     target_link_libraries(${exec} PRIVATE GTest::gtest_main GTest::gtest)
     target_link_libraries(${exec} PRIVATE Igor)
-
-    # Export the symbols of the executable so that they show up in the stacktrace (`-rdynamic`).
-    set_target_properties(${exec} PROPERTIES ENABLE_EXPORTS ON)
+    if(cpptrace_FOUND)
+      target_link_libraries(${exec} PRIVATE cpptrace::cpptrace)
+      target_compile_definitions(${exec} PRIVATE IGOR_USE_CPPTRACE)
+    endif()
 
     gtest_discover_tests(${exec})
 endforeach()

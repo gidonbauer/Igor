@@ -28,53 +28,41 @@
 #include <sstream>
 #include <string>
 #include <string_view>
-#include <version>
 
-// - Maximum number of stack frames that are captured
-// -----------------------------------------------
+// - Maximum number of stack frames that are captured ----------------------------------------------
 #ifndef IGOR_STACKTRACE_MAX_FRAMES
 #define IGOR_STACKTRACE_MAX_FRAMES 64
 #endif  // IGOR_STACKTRACE_MAX_FRAMES
 
-// - Select the backend
-// -----------------------------------------------------------------------------
-// `IGOR_NO_STACKTRACE`:       Disable the stacktrace entirely, `Igor::stacktrace` returns an empty
-//                             string and `Igor::print_stacktrace` prints nothing.
-// `IGOR_USE_STD_STACKTRACE`:  Use `std::stacktrace` from C++23. This gives the best results
-//                             (function name, file and line) but requires linking against
-//                             `stdc++exp` when using libstdc++.
-//                             TODO: Make this the default once `<stacktrace>` is widely available.
-// default:                    Use `backtrace` from `<execinfo.h>` on POSIX systems, no additional
-//                             linking required. Symbol names are demangled via `<cxxabi.h>` unless
-//                             `IGOR_NO_CXX_ABI` is defined.
-#if defined(IGOR_NO_STACKTRACE)
+// - Select the backend ----------------------------------------------------------------------------
+// `IGOR_USE_STD_STACKTRACE`: Use `std::stacktrace` from C++23
+// `IGOR_USE_CPPTRACE`:       Use `cpptrace` (https://github.com/jeremy-rifkin/cpptrace).
+//                            Requires including the library yourself.
+#if defined(IGOR_USE_STD_STACKTRACE) && defined(IGOR_USE_CPPTRACE)
+#error "`IGOR_USE_STD_STACKTRACE` and `IGOR_USE_CPPTRACE` are mutually exclusive, define only one."
+#endif  // IGOR_USE_STD_STACKTRACE && IGOR_USE_CPPTRACE
 
-#define IGOR_STACKTRACE_BACKEND_NONE
+#if defined(IGOR_USE_STD_STACKTRACE)
 
-#elif defined(IGOR_USE_STD_STACKTRACE)
-
-#if defined(__cpp_lib_stacktrace) && __cpp_lib_stacktrace >= 202011L
+#include <version>
+#if !defined(__cpp_lib_stacktrace) || __cpp_lib_stacktrace < 202011L
+#error                                                                                             \
+    "`IGOR_USE_STD_STACKTRACE` was requested but this standard library does not provide `<stacktrace>`; use `IGOR_USE_CPPTRACE` instead or define neither to disable stacktraces."
+#endif  // __cpp_lib_stacktrace
 #define IGOR_STACKTRACE_BACKEND_STD
 #include <stacktrace>
-#else
+
+#elif defined(IGOR_USE_CPPTRACE)
+
+#if !__has_include(<cpptrace/cpptrace.hpp>)
 #error                                                                                             \
-    "`IGOR_USE_STD_STACKTRACE` was requested but this standard library does not provide `<stacktrace>`; remove the macro to fall back to `backtrace` or define `IGOR_NO_STACKTRACE` to disable stacktraces."
-#endif  // __cpp_lib_stacktrace
-
-#elif __has_include(<execinfo.h>)
-
-#define IGOR_STACKTRACE_BACKEND_EXECINFO
-#include <cstdlib>
-#include <execinfo.h>
-#include <memory>
-#ifndef IGOR_NO_CXX_ABI
-#include <cxxabi.h>
-#endif  // IGOR_NO_CXX_ABI
+    "`IGOR_USE_CPPTRACE` was requested but `<cpptrace/cpptrace.hpp>` was not found; install `cpptrace` (e.g. `brew install cpptrace`), add its include directory and link against it."
+#endif  // __has_include(<cpptrace/cpptrace.hpp>)
+#define IGOR_STACKTRACE_BACKEND_CPPTRACE
+#include <cpptrace/cpptrace.hpp>
 
 #else
 
-// TODO: Implement a backend for Windows using `CaptureStackBackTrace` from `<dbghelp.h>`; this
-//       requires linking against `dbghelp` and is therefore not done here.
 #define IGOR_STACKTRACE_BACKEND_NONE
 
 #endif  // Select the backend
@@ -97,60 +85,24 @@ inline constexpr bool stacktrace_available =
 
 namespace detail {
 
-#ifdef IGOR_STACKTRACE_BACKEND_EXECINFO
+#ifndef IGOR_STACKTRACE_BACKEND_NONE
 
-[[nodiscard]] constexpr auto is_mangled_name_char(char c) noexcept -> bool {
-  return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' ||
-         c == '$' || c == '.';
+// Format a single frame as `#<frame_number> <symbol> at <file>:<line>`; the location is omitted if
+// the debug information is not available.
+inline void format_frame(std::ostream& out,
+                         size_t frame_number,
+                         std::string_view symbol,
+                         std::string_view file,
+                         size_t line,
+                         bool is_inline = false) noexcept {
+  out << '#' << std::left << std::setw(3) << frame_number << ' '
+      << (symbol.empty() ? "<unknown>" : symbol);
+  if (is_inline) { out << " [inlined]"; }
+  if (!file.empty()) { out << " at \033[95m" << file << ':' << line << "\033[0m"; }
+  out << '\n';
 }
 
-[[nodiscard]] inline auto demangle_line(std::string_view line) noexcept -> std::string {
-  try {
-#ifdef IGOR_NO_CXX_ABI
-    return std::string{line};
-#else
-    constexpr auto free_deleter = [](void* p) constexpr noexcept {
-      std::free(p);  // NOLINT(cppcoreguidelines-owning-memory,cppcoreguidelines-no-malloc)
-    };
-
-    // The module name might contain `_Z` as well, therefore we try all candidates.
-    for (auto begin = line.find("_Z"); begin != std::string_view::npos;
-         begin      = line.find("_Z", begin + 1)) {
-      auto end = begin;
-      while (end < line.size() && is_mangled_name_char(line[end])) {
-        ++end;
-      }
-      const std::string mangled{line.substr(begin, end - begin)};
-
-      int status = 0;
-      const std::unique_ptr<char, decltype(free_deleter)> demangled{
-          abi::__cxa_demangle(mangled.c_str(), nullptr, nullptr, &status), free_deleter};
-      if (status != 0 || demangled == nullptr) { continue; }
-
-      std::string res{line.substr(0, begin)};
-      res += demangled.get();
-      res += line.substr(end);
-      return res;
-    }
-    return std::string{line};
-#endif  // IGOR_NO_CXX_ABI
-  } catch (...) { return std::string{line}; }
-}
-
-[[nodiscard]] constexpr auto strip_frame_number(std::string_view line) noexcept
-    -> std::string_view {
-  size_t idx = 0;
-  while (idx < line.size() && line[idx] >= '0' && line[idx] <= '9') {
-    ++idx;
-  }
-  if (idx == 0 || idx == line.size() || line[idx] != ' ') { return line; }
-  while (idx < line.size() && line[idx] == ' ') {
-    ++idx;
-  }
-  return line.substr(idx);
-}
-
-#endif  // IGOR_STACKTRACE_BACKEND_EXECINFO
+#endif  // IGOR_STACKTRACE_BACKEND_NONE
 
 }  // namespace detail
 
@@ -160,45 +112,34 @@ namespace detail {
 #if defined(IGOR_STACKTRACE_BACKEND_STD)
 
   try {
+    // `stacktrace` itself is frame `0`, therefore we skip one additional frame.
     const auto trace =
         std::stacktrace::current(skip + 1, static_cast<size_t>(IGOR_STACKTRACE_MAX_FRAMES));
     std::ostringstream out{};
     size_t frame_number = 0;
-    for (const auto& entry : trace) {
-      out << '#' << std::left << std::setw(3) << frame_number << ' ' << entry.description();
-      if (!entry.source_file().empty()) {
-        out << " at \033[95m" << entry.source_file() << ':' << entry.source_line() << "\033[0m";
-      }
-      out << '\n';
+    for (const auto& frame : trace) {
+      detail::format_frame(
+          out, frame_number, frame.description(), frame.source_file(), frame.source_line());
       ++frame_number;
     }
     return out.str();
   } catch (...) { return ""; }
 
-#elif defined(IGOR_STACKTRACE_BACKEND_EXECINFO)
+#elif defined(IGOR_STACKTRACE_BACKEND_CPPTRACE)
 
   try {
-    constexpr auto free_deleter = [](void* p) constexpr noexcept {
-      std::free(p);  // NOLINT(cppcoreguidelines-owning-memory,cppcoreguidelines-no-malloc)
-    };
-
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
-    void* frames[IGOR_STACKTRACE_MAX_FRAMES]{};
-    const auto num_frames = ::backtrace(static_cast<void**>(frames), IGOR_STACKTRACE_MAX_FRAMES);
-    if (num_frames <= 0) { return ""; }
-
-    const std::unique_ptr<char*, decltype(free_deleter)> symbols{
-        ::backtrace_symbols(static_cast<void**>(frames), num_frames), free_deleter};
-    if (symbols == nullptr) { return ""; }
-
+    // `stacktrace` itself is frame `0`, therefore we skip one additional frame.
+    const auto trace =
+        cpptrace::stacktrace::current(skip + 1, static_cast<size_t>(IGOR_STACKTRACE_MAX_FRAMES));
     std::ostringstream out{};
     size_t frame_number = 0;
-    // `stacktrace` itself is frame `0`, therefore we skip one additional frame.
-    for (size_t i = skip + 1; i < static_cast<size_t>(num_frames); ++i) {
-      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-      const std::string_view line{symbols.get()[i]};
-      out << '#' << std::left << std::setw(3) << frame_number << ' '
-          << detail::demangle_line(detail::strip_frame_number(line)) << '\n';
+    for (const auto& frame : trace) {
+      detail::format_frame(out,
+                           frame_number,
+                           frame.symbol,
+                           frame.line.has_value() ? frame.filename : "",
+                           frame.line.value_or(0),
+                           frame.is_inline);
       ++frame_number;
     }
     return out.str();
