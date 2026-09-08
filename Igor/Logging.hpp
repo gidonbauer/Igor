@@ -42,6 +42,8 @@
 #include <utility>
 #include <vector>
 
+#include "./StackTrace.hpp"
+
 namespace Igor {
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
@@ -55,6 +57,11 @@ enum class ExitCode : int {  // NOLINT(performance-enum-size)
 };
 
 [[noreturn]] void exit(int exit_code) noexcept {
+  if (exit_code == static_cast<int>(ExitCode::ASSERT) ||
+      exit_code == static_cast<int>(ExitCode::PANIC)) {
+    print_stacktrace();
+  }
+
   for (const auto& f : on_death) {
     f();
   }

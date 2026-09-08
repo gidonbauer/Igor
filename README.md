@@ -7,6 +7,12 @@
 - `Igor/Logging.hpp`: Simple logging to `stdout` and `stderr`
     - Include source location for warnings and errors
     - Build upon C++20 format
+    - Print the stacktrace when an assertion fails or when `Igor::Panic` is called
+- `Igor/StackTrace.hpp`: Capture and print the stacktrace of the calling thread
+    - `IGOR_NO_STACKTRACE`: Disable stacktrace
+    - `IGOR_USE_STD_STACKTRACE`: Use `std::stacktrace` from C++23
+    - default: Use `backtrace` from `<execinfo.h>` on POSIX systems
+    - `IGOR_STACKTRACE_MAX_FRAMES`: Maximum number of captured stack frames
 - `Igor/TypeName.hpp`: De-mangling C++ type names to a string
 - `Igor/Timer.hpp`: Simple timing of scopes
 - `Igor/ProgressBar.hpp`: Simple command line progressbar, non-thread safe

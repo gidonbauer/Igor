@@ -27,6 +27,7 @@
 #include "./Math.hpp"
 #include "./MemoryToString.hpp"
 #include "./ProgressBar.hpp"
+#include "./StackTrace.hpp"
 #include "./StaticVector.hpp"
 #include "./Timer.hpp"
 #include "./TypeName.hpp"

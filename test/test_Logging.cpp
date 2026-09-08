@@ -58,3 +58,9 @@ TEST(TestLogging, Panic) {
   EXPECT_DEATH(Igor::Panic("This function must be implemented! {}", 42),
                "This function must be implemented! 42");
 }
+
+TEST(TestLogging, PanicPrintsStacktrace) {
+  if constexpr (!Igor::stacktrace_available) { GTEST_SKIP() << "No stacktrace backend available."; }
+
+  EXPECT_DEATH(Igor::Panic("This function must be implemented! {}", 42), "\\[STACKTRACE\\]");
+}

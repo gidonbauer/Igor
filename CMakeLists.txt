@@ -22,6 +22,7 @@ add_library(Igor INTERFACE
                 ./Igor/Math.hpp
                 ./Igor/MemoryToString.hpp
                 ./Igor/ProgressBar.hpp
+                ./Igor/StackTrace.hpp
                 ./Igor/StaticVector.hpp
                 ./Igor/Timer.hpp
                 ./Igor/TypeName.hpp
